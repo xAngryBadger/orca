@@ -22,6 +22,37 @@ app = FastAPI(title="Orca Web — Painel de Cenários")
 
 templates = Jinja2Templates(directory="src/atm/web/templates")
 
+# Custom Jinja2 filters
+def _unique_filter(seq):
+    """Remove duplicatas mantendo ordem."""
+    seen = set()
+    result = []
+    for item in seq:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+def _selectattr_filter(seq, attr, value=None):
+    """Filtra objetos ou dicts por atributo/chave."""
+    result = []
+    for item in seq:
+        # Tenta como dict primeiro, depois como objeto
+        if isinstance(item, dict):
+            item_value = item.get(attr)
+        else:
+            item_value = getattr(item, attr, None)
+        
+        if value is None:
+            if item_value:
+                result.append(item)
+        elif item_value == value:
+            result.append(item)
+    return result
+
+templates.env.filters["unique"] = _unique_filter
+templates.env.filters["selectattr"] = _selectattr_filter
+
 
 def _get_session_id(request: Request) -> str:
     """Obtém ou cria session_id do cookie."""

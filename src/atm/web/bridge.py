@@ -2,15 +2,22 @@
 
 from __future__ import annotations
 
+import os
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
 
 from ..orca.comparativo_real import simular_cenarios_reais, simular_cenario_real
-from ..orca.io import ler_microatual, ler_tarifas
+from ..orca.io import (
+    carregar_planilha_microplanejamento,
+    _find_default_micro_path,
+    _find_default_ct_path,
+    buscar_arquivos_excel,
+)
+from ..orca.tarifas import carregar_stg_tarifas
 from ..orca.config import carregar_config
-from ..orca.schemas import MicroRow
+from ..orca.schemas import MicroRow, micro_de_dataframe, tarifas_de_dict
 
 
 _executor = ThreadPoolExecutor(max_workers=2)
@@ -45,22 +52,91 @@ def _run_in_thread(fn, *args, **kwargs):
     return future.result()
 
 
-def carregar_micro(session_id: str, caminho: str = "data/planilhas/microatual.xlsx") -> SessionState:
+def _encontrar_micro_path(cfg: Dict[str, Any]) -> Optional[str]:
+    """Encontra caminho do microatual.xlsx."""
+    # Tenta config.json primeiro
+    path = _find_default_micro_path(cfg)
+    if path and os.path.exists(path):
+        return path
+    # Fallback: procura em data/planilhas/
+    base = os.path.join(os.getcwd(), "data", "planilhas")
+    for nome in ["microatual.xlsx", "exame.xlsx", "EXAME.xlsx"]:
+        p = os.path.join(base, nome)
+        if os.path.exists(p):
+            return p
+    return None
+
+
+def _encontrar_ct_path() -> Optional[str]:
+    """Encontra caminho do CT (tarifas)."""
+    path = _find_default_ct_path()
+    if path and os.path.exists(path):
+        return path
+    # Fallback: procura STG_TARIFAS.xlsx gerado
+    base = os.path.join(os.getcwd(), "data", "planilhas")
+    for nome in ["STG_TARIFAS.xlsx", "stg_tarifas.xlsx"]:
+        p = os.path.join(base, nome)
+        if os.path.exists(p):
+            return p
+    # Procura CT direto
+    for f in buscar_arquivos_excel():
+        n = f.lower()
+        if "ct317" in n or ("ct" in n and "317" in n):
+            return os.path.join(os.getcwd(), "data", "planilhas", f)
+    return None
+
+
+def carregar_micro(session_id: str, caminho: Optional[str] = None) -> SessionState:
     """Carrega microatual.xlsx e armazena na sessão."""
     state = _get_or_create_session(session_id)
     try:
-        state.micro_rows = ler_microatual(caminho)
+        cfg = carregar_config()
+        state.config = cfg
+        
+        if not caminho:
+            caminho = _encontrar_micro_path(cfg)
+        
+        if not caminho or not os.path.exists(caminho):
+            state.erro = f"Arquivo micro não encontrado: {caminho}"
+            return state
+        
+        # Carrega em modo automático (sem prompts interativos)
+        df = carregar_planilha_microplanejamento(cfg, caminho=caminho, modo_auto=True)
+        
+        if df is None:
+            state.erro = "Falha ao carregar micro (modo automático)"
+            return state
+        
+        state.micro_rows = micro_de_dataframe(df)
         state.erro = None
     except Exception as e:
         state.erro = f"Erro ao carregar micro: {e}"
     return state
 
 
-def carregar_tarifas(session_id: str, caminho: str = "data/planilhas/ct317real.xlsx") -> SessionState:
-    """Carrega tarifas e armazena na sessão."""
+def carregar_tarifas(session_id: str, caminho: Optional[str] = None) -> SessionState:
+    """Carrega tarifas (STG_TARIFAS.xlsx ou CT) e armazena na sessão."""
     state = _get_or_create_session(session_id)
     try:
-        state.tarifas = ler_tarifas(caminho)
+        if not caminho:
+            caminho = _encontrar_ct_path()
+        
+        if not caminho or not os.path.exists(caminho):
+            state.erro = f"Arquivo de tarifas não encontrado: {caminho}"
+            return state
+        
+        # Se for STG_TARIFAS.xlsx, usa carregar_stg_tarifas
+        if "stg_tarifas" in caminho.lower():
+            state.tarifas = carregar_stg_tarifas(caminho)
+        else:
+            # CT bruto: precisa processar via modulo_importar_tarifas
+            # Para simplificar, tenta carregar como STG se tiver a aba correta
+            try:
+                state.tarifas = carregar_stg_tarifas(caminho)
+            except Exception:
+                state.erro = "Arquivo CT precisa ser processado primeiro (gere STG_TARIFAS.xlsx via CLI)"
+                return state
+        
         state.erro = None
     except Exception as e:
         state.erro = f"Erro ao carregar tarifas: {e}"
@@ -73,7 +149,7 @@ def validar_dados(session_id: str) -> SessionState:
     if not state.micro_rows:
         state.erro = "Micro não carregado. Carregue o microatual.xlsx primeiro."
     elif not state.tarifas:
-        state.erro = "Tarifas não carregadas. Carregue o ct317real.xlsx primeiro."
+        state.erro = "Tarifas não carregadas. Carregue o ct317real.xlsx (ou STG_TARIFAS.xlsx) primeiro."
     else:
         state.erro = None
     return state
@@ -83,17 +159,16 @@ def _construir_demanda(micro_rows: List[MicroRow], tarifas: Dict[str, Any]) -> D
     """Constrói dicionário de demanda a partir do micro e tarifas."""
     demanda: Dict[Any, float] = {}
     for row in micro_rows:
-        talhao = row.talhao
+        talhao = row.chave  # schemas usa 'chave' para talhão
         atividade = row.atividade
-        area = float(row.area)
+        area = float(row.area_ha)
         # Busca rendimento hm (hectare/mês) ou hh (hora/homem)
-        # A estrutura de tarifas tem: {atividade: {rendimento_hm, rendimento_hh, ...}}
         tarifa = tarifas.get(atividade, {})
-        rendimento_hm = tarifa.get("rendimento_hm", 1.0)
+        rendimento_hm = tarifa.get("rendimento_hm", 0.0)
         if rendimento_hm and rendimento_hm > 0:
             hh = area / rendimento_hm
         else:
-            rendimento_hh = tarifa.get("rendimento_hh", 1.0)
+            rendimento_hh = tarifa.get("rendimento_hh", 0.0)
             hh = area * rendimento_hh if rendimento_hh else area
         demanda[(talhao, atividade)] = round(hh, 2)
     return demanda
@@ -105,13 +180,16 @@ def simular(session_id: str, jornadas: List[float], equipes: List[int]) -> Sessi
     state.erro = None
     
     try:
-        # Carrega config para jornada/equipes base
-        config = carregar_config()
+        config = state.config or carregar_config()
         jornada_base = float(config.get("jornada", 7.5))
         executores_base = int(config.get("executores", 4))
         
         # Constrói demanda real
         demanda = _construir_demanda(state.micro_rows, state.tarifas)
+        
+        if not demanda:
+            state.erro = "Nenhuma demanda construída — verifique micro e tarifas"
+            return state
         
         # Roda grade de cenários no scheduler real
         cenarios = _run_in_thread(
@@ -136,11 +214,15 @@ def simular_unico(session_id: str, jornada: float, equipe: int) -> SessionState:
     state.erro = None
     
     try:
-        config = carregar_config()
+        config = state.config or carregar_config()
         jornada_base = float(config.get("jornada", 7.5))
         executores_base = int(config.get("executores", 4))
         
         demanda = _construir_demanda(state.micro_rows, state.tarifas)
+        
+        if not demanda:
+            state.erro = "Nenhuma demanda construída — verifique micro e tarifas"
+            return state
         
         cenario = _run_in_thread(
             simular_cenario_real,
