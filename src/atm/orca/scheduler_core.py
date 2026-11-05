@@ -1415,9 +1415,11 @@ def _exportar_dossier_excel(
             wb_op = writer_op.book
             _aplicar_cores_ocupacao_excel(wb_op, "OCUPACAO_TURMAS_DIA")
             try:
-                from orca_excel_format import aplicar_formatacao_operacional
+                from src.utils.orca_excel_format import (
+                    aplicar_formatacao_operacional as _fmt_operacional,
+                )
 
-                aplicar_formatacao_operacional(wb_op, dias_simulado, cronograma_base)
+                _fmt_operacional(wb_op, dias_simulado, cronograma_base)
             except Exception as _fmt_err:
                 aviso(f"Formatacao operacional falhou (formatador externo): {_fmt_err}")
 
@@ -1490,9 +1492,11 @@ def _exportar_dossier_excel(
                     )
                 wb_mo = writer_mo.book
                 try:
-                    from orca_excel_format import aplicar_formatacao_operacional
+                    from src.utils.orca_excel_format import (
+                        aplicar_formatacao_operacional as _fmt_operacional,
+                    )
 
-                    aplicar_formatacao_operacional(wb_mo, d_comb, cronograma_com_mec)
+                    _fmt_operacional(wb_mo, d_comb, cronograma_com_mec)
                 except Exception as _fmt_err:
                     aviso(f"Formatacao mecanizado falhou (formatador externo): {_fmt_err}")
 
