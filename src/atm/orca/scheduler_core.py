@@ -68,6 +68,7 @@ from .excel_export import (
 from .monitor import _emitir_monitor_atual, _emitir_monitor_relatorio, _emitir_monitor_state, _monitor_build_rendimentos
 from .scheduler import (
     _demanda_global_touch,
+    _ha_nao_bloqueado_version,
     _demanda_plantio_talhao,
     _distribuir_atividades_faltantes_turmas,
     _min_fase_cascata_por_talhao,
@@ -431,6 +432,23 @@ def _executar_scheduler_loop(config: _SchedulerLoopConfig):
         restante = sum(1 for v in demanda_global.values() if v > _HH_EPSILON)
         if dia % 100 == 0 or dia == 1:
             print(DM + f"  dia {dia}/{MAX_DIAS} ({restante} demandas restantes)" + RS, end="\r")
+        cache_gate_dia = {}
+
+        def _pode_agendar_cacheado(talhao, atv):
+            chave = (talhao, atv, _ha_nao_bloqueado_version[0])
+            cached = cache_gate_dia.get(chave)
+            if cached is not None:
+                return cached
+            resultado = pode_agendar_atividade_cascata(
+                talhao, atv, demanda_global, config.seq_cfg, config.modo_seq,
+                config.usar_cascata, config.usar_bloqueio_global,
+                config.atividades_bloqueadas, config.atividades_plantio,
+                config.atividades_irrig, dia, config.dia_termino_plantio,
+                config.tem_plantio_por_talhao, min_fase_dia,
+            )
+            cache_gate_dia[chave] = resultado
+            return resultado
+
         min_fase_dia_dict = _min_fase_cascata_por_talhao(
             demanda_global, config.seq_cfg, config.modo_seq, config.usar_cascata,
             config.usar_bloqueio_global, config.atividades_bloqueadas,
@@ -465,13 +483,7 @@ def _executar_scheduler_loop(config: _SchedulerLoopConfig):
                         rest = demanda_global.get(key, 0.0)
                         if rest <= _HH_EPSILON:
                             continue
-                        if not pode_agendar_atividade_cascata(
-                            talhao, atv, demanda_global, config.seq_cfg, config.modo_seq,
-                            config.usar_cascata, config.usar_bloqueio_global, config.atividades_bloqueadas,
-                            config.atividades_plantio, config.atividades_irrig,
-                            dia, config.dia_termino_plantio, config.tem_plantio_por_talhao,
-                            min_fase_dia,
-                        ):
+                        if not _pode_agendar_cacheado(talhao, atv):
                             continue
                         consumo = min(rest, cap_pool)
                         demanda_global[key] -= consumo
@@ -511,13 +523,7 @@ def _executar_scheduler_loop(config: _SchedulerLoopConfig):
                     idx += 1
                     continue
 
-                if not pode_agendar_atividade_cascata(
-                    item["talhao"], item["atividade"], demanda_global, config.seq_cfg, config.modo_seq,
-                    config.usar_cascata, config.usar_bloqueio_global, config.atividades_bloqueadas,
-                    config.atividades_plantio, config.atividades_irrig,
-                    dia, config.dia_termino_plantio, config.tem_plantio_por_talhao,
-                    min_fase_dia,
-                ):
+                if not _pode_agendar_cacheado(item["talhao"], item["atividade"]):
                     idx += 1
                     continue
 
@@ -563,13 +569,7 @@ def _executar_scheduler_loop(config: _SchedulerLoopConfig):
                         rest_ref = demanda_global.get(key_ref, 0.0)
                         if rest_ref <= _HH_EPSILON:
                             continue
-                        if not pode_agendar_atividade_cascata(
-                            talhao, atv, demanda_global, config.seq_cfg, config.modo_seq,
-                            config.usar_cascata, config.usar_bloqueio_global, config.atividades_bloqueadas,
-                            config.atividades_plantio, config.atividades_irrig,
-                            dia, config.dia_termino_plantio, config.tem_plantio_por_talhao,
-                            min_fase_dia,
-                        ):
+                        if not _pode_agendar_cacheado(talhao, atv):
                             continue
                         consumo_ref = min(rest_ref, cap_dia)
                         if consumo_ref <= _HH_EPSILON:
