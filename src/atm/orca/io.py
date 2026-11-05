@@ -11,6 +11,7 @@ from .config import (
     STG_FILENAME,
     salvar_config,
 )
+from .errors import OrcaValidationError
 from .territorio import _indice_fazendas_ct, fazendas_unicas_micro
 from .text_utils import normalizar_chave, remover_acentos
 from .ui import (
@@ -31,8 +32,12 @@ from .ui import (
 )
 
 
-def encontrar_coluna(cols, campo):
-    """Try KNOWN_COLUMNS exact matches first, then fuzzy fallback."""
+def encontrar_coluna(cols, campo, modo_auto=False, arquivo=None, aba=None):
+    """Try KNOWN_COLUMNS exact matches first, then fuzzy fallback.
+
+    In modo_auto (batch), raises OrcaValidationError if required column not found.
+    In interactive mode, returns None and caller handles manual selection.
+    """
     known = KNOWN_COLUMNS.get(campo, [])
     for k in known:
         if k in cols:
@@ -44,6 +49,24 @@ def encontrar_coluna(cols, campo):
         for cn, original in cn_map.items():
             if kn in cn or cn in kn:
                 return original
+    # Not found
+    if modo_auto:
+        available = ", ".join(cols) if cols else "(nenhuma)"
+        msg = (
+            f"Coluna obrigatória '{campo}' não encontrada"
+        )
+        if arquivo:
+            msg += f" no arquivo '{os.path.basename(arquivo)}'"
+        if aba:
+            msg += f", aba '{aba}'"
+        msg += f". Colunas disponíveis: {available}"
+        raise OrcaValidationError(
+            msg,
+            column=campo,
+            file=arquivo,
+            sheet=aba,
+            available_columns=list(cols),
+        )
     return None
 
 
@@ -244,12 +267,12 @@ def carregar_planilha_microplanejamento(cfg, caminho=None, modo_auto=False):
         cols = df.columns.tolist()
 
         # Mapear com KNOWN_COLUMNS primeiro
-        faz_col = encontrar_coluna(cols, "fazenda")
-        chv_col = encontrar_coluna(cols, "chave")
-        area_col = encontrar_coluna(cols, "area")
-        atv_col = encontrar_coluna(cols, "atividade")
-        mun_col = encontrar_coluna(cols, "municipio")
-        est_col = encontrar_coluna(cols, "estado")
+        faz_col = encontrar_coluna(cols, "fazenda", modo_auto, caminho, aba)
+        chv_col = encontrar_coluna(cols, "chave", modo_auto, caminho, aba)
+        area_col = encontrar_coluna(cols, "area", modo_auto, caminho, aba)
+        atv_col = encontrar_coluna(cols, "atividade", modo_auto, caminho, aba)
+        mun_col = encontrar_coluna(cols, "municipio", modo_auto, caminho, aba)
+        est_col = encontrar_coluna(cols, "estado", modo_auto, caminho, aba)
 
         # BETA: planilhas de testes podem nao ter CHAVE POLIGONO; usar NUCLEO como fallback automatico.
         if modo_auto and not chv_col:
