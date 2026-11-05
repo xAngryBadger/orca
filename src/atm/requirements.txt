@@ -2,3 +2,6 @@ pandas>=2.0
 openpyxl>=3.1
 rich>=13.0
 colorama>=0.4
+fastapi>=0.109
+uvicorn>=0.27
+jinja2>=3.1

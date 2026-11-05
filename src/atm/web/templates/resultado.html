@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+
+{% block title %}Orca — Resultados dos Cenários{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<header class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Resultados da Simulação</h1>
+    <p class="text-gray-600 text-sm mt-1">{{ cenarios|length }} cenários executados pelo scheduler real</p>
+    <a href="/?session_id={{ session_id }}" class="inline-block mt-3 text-sm text-blue-600 hover:underline">
+        ← Voltar ao Painel
+    </a>
+</header>
+
+{% if erro %}
+<div class="card bg-red-50 border border-red-200">
+    <div class="text-red-700 text-sm">
+        ⚠ {{ erro }}
+    </div>
+</div>
+{% endif %}
+
+{% if not cenarios %}
+<div class="card text-center py-8">
+    <div class="text-4xl mb-2">📊</div>
+    <h2 class="text-lg font-medium text-gray-900 mb-1">Nenhum cenário simulado</h2>
+    <p class="text-gray-500 text-sm mb-4">Carregue micro e tarifas, depois execute uma simulação.</p>
+    <a href="/?session_id={{ session_id }}" class="btn btn-primary">Voltar ao Painel</a>
+</div>
+{% else %}
+
+<!-- Resumo estatístico -->
+<div class="card">
+    <h2 class="text-lg font-semibold text-gray-900 mb-3">Resumo</h2>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div class="p-3 bg-blue-50 rounded-lg">
+            <div class="text-2xl font-bold text-blue-600">{{ cenarios|length }}</div>
+            <div class="text-xs text-blue-700">Cenários</div>
+        </div>
+        <div class="p-3 bg-green-50 rounded-lg">
+            <div class="text-2xl font-bold text-green-600">
+                {{ cenarios|selectattr('aprovacao', 'equalto', 'COMPLETO')|list|length }}
+            </div>
+            <div class="text-xs text-green-700">Completos</div>
+        </div>
+        <div class="p-3 bg-yellow-50 rounded-lg">
+            <div class="text-2xl font-bold text-yellow-600">
+                {{ cenarios|selectattr('aprovacao', 'equalto', 'INCOMPLETO')|list|length }}
+            </div>
+            <div class="text-xs text-yellow-700">Incompletos</div>
+        </div>
+        <div class="p-3 bg-purple-50 rounded-lg">
+            <div class="text-2xl font-bold text-purple-600">
+                {{ (cenarios|map(attribute='dias_simulados')|min) }}–{{ (cenarios|map(attribute='dias_simulados')|max) }}
+            </div>
+            <div class="text-xs text-purple-700">Dias (min–max)</div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabela de cenários -->
+<div class="card">
+    <h2 class="text-lg font-semibold text-gray-900 mb-3">Grade de Cenários (Jornada × Equipe)</h2>
+    
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Equipe</th>
+                    <th>Jornada</th>
+                    <th>Dias</th>
+                    <th>Meses</th>
+                    <th>HH Total</th>
+                    <th>HH Pendente</th>
+                    <th>Cap. Dia</th>
+                    <th>Uso%</th>
+                    <th>Linhas</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in cenarios %}
+                <tr class="{% if c.aprovacao == 'INCOMPLETO' %}bg-red-50{% endif %}">
+                    <td class="font-medium">{{ c.executores }}</td>
+                    <td>{{ c.jornada }}h</td>
+                    <td class="font-medium">{{ c.dias_simulados }}</td>
+                    <td>{{ c.meses_simulados }}</td>
+                    <td>{{ c.hh_total }}</td>
+                    <td class="{% if c.hh_pendente > 0 %}text-red-600{% else %}text-green-600{% endif %}">{{ c.hh_pendente }}</td>
+                    <td>{{ c.capacidade_dia_hh }}</td>
+                    <td class="font-medium">{{ c.uso_capacidade_pct }}%</td>
+                    <td>{{ c.linhas_cronograma }}</td>
+                    <td>
+                        <span class="badge {% if c.aprovacao == 'COMPLETO' %}badge-success{% else %}badge-error{% endif %}">
+                            {{ c.aprovacao }}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Análise por jornada -->
+<div class="card">
+    <h2 class="text-lg font-semibold text-gray-900 mb-3">Análise por Jornada</h2>
+    {% set jornadas = cenarios|map(attribute='jornada')|unique|list|sort %}
+    {% for j in jornadas %}
+    {% set cen_j = cenarios|selectattr('jornada', 'equalto', j)|list %}
+    <div class="mb-4 {% if not loop.last %}pb-4 border-b border-gray-100{% endif %}">
+        <h3 class="font-medium text-gray-800 mb-2">Jornada {{ j }}h — {{ cen_j|length }} configurações</h3>
+        <div class="table-container">
+            <table class="text-xs">
+                <thead>
+                    <tr>
+                        <th>Equipe</th>
+                        <th>Dias</th>
+                        <th>Meses</th>
+                        <th>Uso%</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in cen_j|sort(attribute='executores') %}
+                    <tr>
+                        <td>{{ c.executores }}</td>
+                        <td>{{ c.dias_simulados }}</td>
+                        <td>{{ c.meses_simulados }}</td>
+                        <td>{{ c.uso_capacidade_pct }}%</td>
+                        <td>
+                            <span class="badge {% if c.aprovacao == 'COMPLETO' %}badge-success{% else %}badge-error{% endif %}">
+                                {{ c.aprovacao }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Análise por equipe -->
+<div class="card">
+    <h2 class="text-lg font-semibold text-gray-900 mb-3">Análise por Equipe</h2>
+    {% set equipes = cenarios|map(attribute='executores')|unique|list|sort %}
+    {% for e in equipes %}
+    {% set cen_e = cenarios|selectattr('executores', 'equalto', e)|list %}
+    <div class="mb-4 {% if not loop.last %}pb-4 border-b border-gray-100{% endif %}">
+        <h3 class="font-medium text-gray-800 mb-2">Equipe {{ e }} operários — {{ cen_e|length }} configurações</h3>
+        <div class="table-container">
+            <table class="text-xs">
+                <thead>
+                    <tr>
+                        <th>Jornada</th>
+                        <th>Dias</th>
+                        <th>Meses</th>
+                        <th>Uso%</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in cen_e|sort(attribute='jornada') %}
+                    <tr>
+                        <td>{{ c.jornada }}h</td>
+                        <td>{{ c.dias_simulados }}</td>
+                        <td>{{ c.meses_simulados }}</td>
+                        <td>{{ c.uso_capacidade_pct }}%</td>
+                        <td>
+                            <span class="badge {% if c.aprovacao == 'COMPLETO' %}badge-success{% else %}badge-error{% endif %}">
+                                {{ c.aprovacao }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Rodapé -->
+<div class="card text-center text-sm text-gray-500">
+    <p>Dados gerados pelo <strong>scheduler real</strong> (comparativo_real.simular_cenarios_reais)</p>
+    <p class="mt-1">Orca v7 — Restauração Florestal</p>
+</div>
+
+{% endif %}
+
+{% endblock %}
