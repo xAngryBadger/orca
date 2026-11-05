@@ -33,48 +33,71 @@ except Exception:
 
 
 # ──────────────────────────────────────────────
-# STATE PATH
+# STATE PATH (session_id based, not PID)
 # ──────────────────────────────────────────────
-_MONITOR_STATE_PATH = (
-    _monitor_default_state_path(os.getpid())
-    if callable(_monitor_default_state_path)
-    else None
-)
+_DEFAULT_SESSION_ID = "orca_default"
+
+_MONITOR_SESSION_ID = _DEFAULT_SESSION_ID
+_MONITOR_STATE_PATH = None
 
 # Reference to contexto_sessao — set by the application at startup.
 # This avoids circular imports while allowing monitor to access session context.
 _contexto_sessao = None
 
 
-def init_monitor(contexto_sessao):
-    """Inject the global ContextoSessao instance. Call once at app startup."""
-    global _contexto_sessao
+def _resolve_state_path(session_id: str) -> str | None:
+    """Resolve state path for a given session_id."""
+    if callable(_monitor_default_state_path):
+        return _monitor_default_state_path(session_id)
+    return None
+
+
+def init_monitor(contexto_sessao, session_id: str | None = None):
+    """Inject the global ContextoSessao instance and optional session_id.
+    
+    Args:
+        contexto_sessao: The global ContextoSessao instance.
+        session_id: Optional session identifier for state isolation.
+                   Defaults to "orca_default" for backward compatibility.
+    """
+    global _contexto_sessao, _MONITOR_SESSION_ID, _MONITOR_STATE_PATH
     _contexto_sessao = contexto_sessao
+    _MONITOR_SESSION_ID = session_id or _DEFAULT_SESSION_ID
+    _MONITOR_STATE_PATH = _resolve_state_path(_MONITOR_SESSION_ID)
 
 
 # ──────────────────────────────────────────────
 # EMIT FUNCTIONS (safe no-ops when monitor unavailable)
 # ──────────────────────────────────────────────
 
-def _emitir_monitor_state(partial):
-    if _MONITOR_STATE_PATH and callable(_monitor_merge_emit):
+def _emitir_monitor_state(partial, session_id: str | None = None):
+    path = _MONITOR_STATE_PATH
+    if session_id:
+        path = _resolve_state_path(session_id)
+    if path and callable(_monitor_merge_emit):
         try:
-            _monitor_merge_emit(_MONITOR_STATE_PATH, partial)
+            _monitor_merge_emit(path, partial)
         except Exception:
             pass
 
 
-def _emitir_monitor_relatorio(titulo, texto):
-    if _MONITOR_STATE_PATH and callable(_monitor_append_relatorio):
+def _emitir_monitor_relatorio(titulo, texto, session_id: str | None = None):
+    path = _MONITOR_STATE_PATH
+    if session_id:
+        path = _resolve_state_path(session_id)
+    if path and callable(_monitor_append_relatorio):
         try:
-            _monitor_append_relatorio(_MONITOR_STATE_PATH, titulo, texto)
+            _monitor_append_relatorio(path, titulo, texto)
         except Exception:
             pass
 
 
-def _emitir_monitor_atual():
+def _emitir_monitor_atual(session_id: str | None = None):
     """Emite o estado atual do contexto para os monitores."""
-    if not (_MONITOR_STATE_PATH and callable(_monitor_merge_emit)):
+    path = _MONITOR_STATE_PATH
+    if session_id:
+        path = _resolve_state_path(session_id)
+    if not (path and callable(_monitor_merge_emit)):
         return
     if _contexto_sessao is None:
         return
@@ -122,7 +145,7 @@ def _emitir_monitor_atual():
             estado["timestamp"] = _contexto_sessao.timestamp_atualizacao.timestamp()
             estado["timestamp_iso"] = _contexto_sessao.timestamp_atualizacao.strftime("%Y-%m-%dT%H:%M:%S")
 
-        _monitor_merge_emit(_MONITOR_STATE_PATH, estado)
+        _monitor_merge_emit(path, estado)
     except Exception:
         pass
 
@@ -133,9 +156,13 @@ def _emitir_monitor_rendimentos(
     hh_ha: float = 0.0,
     origem: str = "",
     chave_tarifa: str = "",
+    session_id: str | None = None,
 ):
     """Emite atualizacao de rendimento quando uma atividade e vinculada/desvinculada."""
-    if not (_MONITOR_STATE_PATH and callable(_monitor_merge_emit)):
+    path = _MONITOR_STATE_PATH
+    if session_id:
+        path = _resolve_state_path(session_id)
+    if not (path and callable(_monitor_merge_emit)):
         return
     if _contexto_sessao is None:
         return
@@ -143,10 +170,10 @@ def _emitir_monitor_rendimentos(
     try:
         rendimentos_existentes = []
 
-        if _MONITOR_STATE_PATH and os.path.exists(_MONITOR_STATE_PATH):
+        if path and os.path.exists(path):
             try:
                 import json as _json
-                with open(_MONITOR_STATE_PATH, encoding="utf-8") as f:
+                with open(path, encoding="utf-8") as f:
                     dados_existentes = _json.load(f)
                 rendimentos_existentes = dados_existentes.get("rendimentos_sessao", []).copy()
             except (json.JSONDecodeError, OSError):
@@ -219,12 +246,12 @@ def _emitir_monitor_rendimentos(
             estado_geral["timestamp_iso"] = _contexto_sessao.timestamp_atualizacao.strftime("%Y-%m-%dT%H:%M:%S")
 
         estado_geral.update(estado)
-        _monitor_merge_emit(_MONITOR_STATE_PATH, estado_geral)
+        _monitor_merge_emit(path, estado_geral)
     except Exception:
         pass
 
 
-def _abrir_monitor_janela(feed="meta", pid=None):
+def _abrir_monitor_janela(feed="meta", session_id: str | None = None):
     """
     Abre uma janela separada com o monitor SRF.
     Usa subprocess para iniciar um terminal novo.
@@ -234,7 +261,7 @@ def _abrir_monitor_janela(feed="meta", pid=None):
     from . import ui as _ui  # lazy import to avoid circular
 
     try:
-        target_pid = int(pid or os.getpid())
+        target_session_id = session_id or _MONITOR_SESSION_ID
         script_monitor = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
             "srf_monitor.py",
@@ -248,7 +275,7 @@ def _abrir_monitor_janela(feed="meta", pid=None):
             sys.executable,
             script_monitor,
             "--feed", str(feed),
-            "--pid", str(target_pid),
+            "--session-id", str(target_session_id),
         ]
 
         if os.name == "nt":
@@ -282,7 +309,7 @@ def _abrir_monitor_janela(feed="meta", pid=None):
                 _ui.aviso("Nenhum terminal compativel encontrado para abrir o monitor.")
                 return False
 
-        _ui.ok(f"Monitor aberto (PID {target_pid}, feed={feed})")
+        _ui.ok(f"Monitor aberto (session_id={target_session_id}, feed={feed})")
         return True
     except Exception as e:
         _ui.aviso(f"Erro ao abrir monitor: {e}")
