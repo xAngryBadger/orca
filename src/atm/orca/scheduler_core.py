@@ -1,5 +1,7 @@
 """Core scheduler logic — the main scheduling algorithm, batch and multi-team executors."""
 
+from __future__ import annotations
+
 import calendar
 import datetime
 import io
