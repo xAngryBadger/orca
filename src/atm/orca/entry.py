@@ -7,9 +7,8 @@ from .app import (
     _aplicar_filtro_empresa_e_escopo,
     _aplicar_filtro_regiao,
     _executar_scheduler_fazenda_interativo,
-    modulo_importar_tarifas,
-    modulo_normalizar_ct,
 )
+from .commands import executar_comando
 from .config import (
     DIR,
     INPUT_DIR,
@@ -36,13 +35,10 @@ from .scheduler_core import (
 )
 from .tarifas import (
     carregar_stg_tarifas,
-    modulo_importar_custos_globais_brutos,
-    modulo_importar_precos_contrato,
     normalizar_ct313,
 )
 from .territorio import (
     aviso_fazendas_micro_sem_cadastro_ct,
-    modulo_validar_fazendas_ct,
 )
 from .ui import (
     BL,
@@ -213,9 +209,9 @@ def menu_principal(cfg, df, nome_arquivo_micro=""):
                             catalogo_scope,
                         )
         elif v == "2":
-            modulo_importar_tarifas(cfg)
+            executar_comando("2", cfg)
         elif v == "3":
-            modulo_normalizar_ct(cfg)
+            executar_comando("3", cfg)
         elif v == "4":
             modulo_mapeamentos_de_para(cfg, df)
         elif v == "5":
@@ -266,7 +262,7 @@ def menu_principal(cfg, df, nome_arquivo_micro=""):
                     aviso(f"Falha ao re-carregar CT: {ex}")
             esperar()
         elif v == "6":
-            modulo_validar_fazendas_ct(cfg, df)
+            executar_comando("6", cfg, df)
         elif v == "7":
             atual = modo_somente_hh(cfg)
             cfg["modo_somente_hh"] = not atual
@@ -275,9 +271,9 @@ def menu_principal(cfg, df, nome_arquivo_micro=""):
             ok(f"Modo custo alterado para: {novo}")
             esperar("ENTER para voltar")
         elif v == "8":
-            modulo_importar_precos_contrato(cfg)
+            executar_comando("8", cfg)
         elif v == "9":
-            modulo_importar_custos_globais_brutos(cfg)
+            executar_comando("9", cfg)
         elif v.upper() == "M":
             dashboard_header()
             subcabecalho("ABRIR MONITOR EXTERNO")
