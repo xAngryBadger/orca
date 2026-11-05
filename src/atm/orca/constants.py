@@ -1,217 +1,59 @@
 """
-SRF constants — large data dictionaries extracted from the monolith.
+SRF constants — large data dictionaries loaded from YAML.
 
-These are pure data (no code logic) and can be safely moved to
-YAML/JSON files in the future without changing any logic.
+The data is pure data (no code logic) and lives under ``data/`` as YAML so it
+can be versioned/diffed/inspected without touching Python:
+
+- ``data/ct317_hardcode_hh_base.yaml``    -> ``CT317_HARDCODE_HH_BASE``
+- ``data/comparativo_manual_mec.yaml``    -> ``COMPARATIVO_MANUAL_MEC``
+- ``data/default_depara_exame_ct317.yaml`` -> ``DEFAULT_DEPARA_EXAME_CT317``
 
 IMPORTANT: The original monolith uses accented strings as dictionary keys
-(matching the CT317 Excel source). This file preserves the EXACT original
+(matching the CT317 Excel source). The YAML preserves the EXACT original
 keys to maintain lookup correctness. Do NOT normalize accents on keys.
 """
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# DE-PARA: micro activity names -> CT317 canonical operation names
-# ═══════════════════════════════════════════════════════════════════════════════
-DEFAULT_DEPARA_EXAME_CT317 = {
-    "adubacao quim man de base impl pl app rl": "ADUBAÇÃO QUÍM MAN DE BASE Impl. PL - APP/ RL",
-    "capina manual coroa impl cd app rl i": "CAPINA MANUAL COROA Impl. CD APP/ RL I",
-    "capina manual coroa impl pl app rl i": "CAPINA MANUAL COROA Impl. PL - APP/ RL I",
-    "capina quim man total manut app rl": "CAPINA QUÍM MAN TOTAL Manut. APP/RL",
-    "combate a formigas impl cd app rl": "COMBATE À FORMIGAS Impl. CD APP/RL",
-    "combate a formigas impl pl app rl": "COMBATE À FORMIGAS Impl. PL APP/ RL",
-    "combate a formigas manut app rl": "COMBATE À FORMIGAS Manut. APP/RL",
-    "conducao de regeneracao": "CONDUÇÃO DE REGENERAÇÃO",
-    "controle de invasoras app rl": "CONTROLE DE INVASORAS APP/RL I",
-    "coveam area nao subsol impl pl app rl": "COVEAM ÁREA NÃO SUBSOL Impl. PL APP/ RL",
-    "coveamento motocoveador pl app rl": "COVEAMENTO - MOTOCOVEADOR PL APP/RL",
-    "eliminacao de exoticas impl cd app rl": "ELIMINAÇÃO DE EXÓTICAS Impl. CD - APP/RL",
-    "irrigacao inicial man impl pl app rl": "IRRIGAÇÃO INICIAL MAN Impl. PL - APP/ RL",
-    "limpeza de area qu man app rl": "LIMPEZA DE ÁREA QUIM. MAN APP/RL",
-    "limpeza de area quim impl cd app rl": "LIMPEZA DE AREA QUIM. Impl. CD APP/RL",
-    "nucleacao em faixas app rl": "NUCLEAÇÃO EM FAIXAS APP/RL",
-    "plantio manual app rl": "PLANTIO MANUAL APP/RL",
-    "preparo de solo mec c grade app rl": "PREPARO DE SOLO MEC C/ GRADE APP/RL",
-    "preparo de solo mec s adub app rl": "PREPARO DE SOLO MEC S/ ADUB APP/RL",
-    "rocada manual impl cd app rl i": "ROÇADA MANUAL Impl. CD APP/RL I",
-    "rocada manual impl pl app rl i": "ROÇADA MANUAL Impl. PL APP/RL I",
-}
+import os
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# CT317 HARDCODE HH BASE — fallback HH/HM values for CT317 operations
-# ═══════════════════════════════════════════════════════════════════════════════
-CT317_HARDCODE_HH_BASE = {
-    "ADUBAÇÃO QUÍM MAN 3 MESES APP/RL": {"rendimento_hh": 5.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "ADUBAÇÃO QUÍM MAN DE BASE Impl. PL - APP/ RL": {"rendimento_hh": 10.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "ADUBAÇÃO QUÍM MAN DE BASE MAdap. APP/RL": {"rendimento_hh": 11.6, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "ADUBAÇÃO QUÍM MAN DE BASE Manut. APP/RL": {"rendimento_hh": 10.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "APLIC QUIM (LIQ) C/ DRONE TOT APP/RL": {"rendimento_hh": 0.0, "rendimento_hm": 0.5, "tipo": "Mecanizada"},
-    "APLIC QUIM (LIQ) C/ DRONE (EXTRA)": {"rendimento_hh": 0.0, "rendimento_hm": 0.35, "tipo": "Mecanizada"},
-    "CAPINA MANUAL COROA Impl. CD APP/ RL I": {"rendimento_hh": 6.2, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "CAPINA MANUAL COROA Impl. CD APP/ RL II": {"rendimento_hh": 8.5, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "CAPINA MANUAL COROA Impl. CD APP/ RL III": {"rendimento_hh": 11.9, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "CAPINA MANUAL COROA Impl. CD APP/ RL IV": {"rendimento_hh": 17.1, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "CAPINA MANUAL COROA Impl. CD APP/ RL V": {"rendimento_hh": 34.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "CAPINA MANUAL COROA Impl. PL - APP/ RL I": {"rendimento_hh": 6.2, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "CAPINA MANUAL COROA Impl. PL - APP/ RL II": {"rendimento_hh": 8.5, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "CAPINA MANUAL COROA Impl. PL - APP/ RL III": {"rendimento_hh": 11.9, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "CAPINA MANUAL COROA Impl. PL - APP/ RL IV": {"rendimento_hh": 17.1, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "CAPINA MANUAL COROA Impl. PL - APP/ RL V": {"rendimento_hh": 34.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "CAPINA MANUAL COROAMENTO MAdap. APP/RL I": {"rendimento_hh": 6.2, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "CAPINA MANUAL COROAMENTO MAdap. APP/RL II": {"rendimento_hh": 8.5, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "CAPINA MANUAL COROAMENTO MAdap. APP/RL III": {"rendimento_hh": 11.9, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "CAPINA MANUAL COROAMENTO MAdap. APP/RL IV": {"rendimento_hh": 17.1, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "CAPINA MANUAL COROAMENTO MAdap. APP/RL V": {"rendimento_hh": 34.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "CAPINA MANUAL COROAMENTO Manut. APP/RL I": {"rendimento_hh": 6.2, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "CAPINA MANUAL COROAMENTO Manut. APP/RL II": {"rendimento_hh": 8.5, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "CAPINA MANUAL COROAMENTO Manut. APP/RL III": {"rendimento_hh": 11.9, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "CAPINA MANUAL COROAMENTO Manut. APP/RL IV": {"rendimento_hh": 17.1, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "CAPINA MANUAL COROAMENTO Manut. APP/RL V": {"rendimento_hh": 34.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "CAPINA QUÍM MAN COROA Manut. APP/RL": {"rendimento_hh": 5.4, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "CAPINA QUÍM MAN TOTAL MAdap. APP/RL": {"rendimento_hh": 9.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "CAPINA QUÍM MAN TOTAL Manut. APP/RL": {"rendimento_hh": 9.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "CAPINA QUÍM MEC TOTAL APP/RL": {"rendimento_hh": 0.0, "rendimento_hm": 0.95, "tipo": "Mecanizada"},
-    "CAPINA QUÍM MEC TOTAL Manut. APP/RL": {"rendimento_hh": 0.0, "rendimento_hm": 0.95, "tipo": "Mecanizada"},
-    "COMBATE A FORMIGAS Impl. CD APP/RL": {"rendimento_hh": 3.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "COMBATE A FORMIGAS Impl. PL APP/ RL": {"rendimento_hh": 3.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "COMBATE A FORMIGAS MAdap. APP/RL": {"rendimento_hh": 3.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "COMBATE A FORMIGAS Manut. APP/RL": {"rendimento_hh": 3.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "COMBATE INCENDIOS CAM PIPA H 100%": {"rendimento_hh": 0.0, "rendimento_hm": 1.0, "tipo": "Mecanizada"},
-    "COMBATE INCENDIOS CAM PIPA H 50%": {"rendimento_hh": 0.0, "rendimento_hm": 1.0, "tipo": "Mecanizada"},
-    "COMBATE INCENDIOS CAM PIPA HORA NORMAL": {"rendimento_hh": 0.0, "rendimento_hm": 1.0, "tipo": "Mecanizada"},
-    "COMBATE INCENDIOS HH (100%)": {"rendimento_hh": 2.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "COMBATE INCENDIOS HH (50%)": {"rendimento_hh": 1.5, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "COMBATE INCENDIOS HH NORMAL": {"rendimento_hh": 1.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "CONDUÇÃO DE REGENERAÇÃO": {"rendimento_hh": 40.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "CONTROLE DE INVASORAS APP/RL I": {"rendimento_hh": 70.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "COVEAM ÁREA NÃO SUBSOL Impl. PL APP/ RL": {"rendimento_hh": 38.2, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "COVEAM AREA NAO SUBSOL MAdap. PL APP/ RL": {"rendimento_hh": 39.5, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "COVEAMENTO - MOTOCOVEADOR MAdap. APP/RL": {"rendimento_hh": 42.4, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "COVEAMENTO - MOTOCOVEADOR Manut. APP/RL": {"rendimento_hh": 40.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "COVEAMENTO - MOTOCOVEADOR PL APP/RL": {"rendimento_hh": 40.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "COVEAMENTO AREA NAO SUBSOL APP/RL": {"rendimento_hh": 38.2, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "COVEAMENTO AREA SUBSOL APP/RL": {"rendimento_hh": 10.8, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "COVEAMENTO AREA SUBSOL Impl. PL - APP/RL": {"rendimento_hh": 10.8, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "COVEAMENTO MOTOCOV. + ADUB. APP/RL": {"rendimento_hh": 45.8, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "DIARIA AVULSA - H NORMAL": {"rendimento_hh": 1.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "ELIMINAÇAO DE EXOTICAS Impl. CD - APP/RL": {"rendimento_hh": 72.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "ELIMINAÇAO DE EXOTICAS Impl. PL - APP/RL": {"rendimento_hh": 70.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "ELIMINAÇAO DE INVASORAS Manut. APP/RL": {"rendimento_hh": 75.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "IRRIGACAO INICIAL MAN APP/RL": {"rendimento_hh": 14.6, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "IRRIGAÇÃO INICIAL MAN Impl. PL - APP/ RL": {"rendimento_hh": 13.1, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "IRRIGACAO INICIAL MAN MAdap. APP/ RL": {"rendimento_hh": 15.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "IRRIGACAO INICIAL SEMIMEC APP/RL": {"rendimento_hh": 4.0, "rendimento_hm": 0.0, "tipo": "SemiMecanizada"},
-    "LIMPEZA DE AREA QUIM. Impl. CD APP/RL": {"rendimento_hh": 9.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "LIMPEZA DE AREA QUIM. MAN APP/RL": {"rendimento_hh": 9.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "LIMPEZA DE AREA QUIM. MEC APP/RL": {"rendimento_hh": 0.0, "rendimento_hm": 0.85, "tipo": "Mecanizada"},
-    "NUCLEAÇÃO EM FAIXAS APP/RL": {"rendimento_hh": 10.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "PLANTIO CONSORCIADO NAT/EUC APP/RL": {"rendimento_hh": 13.9, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "PLANTIO DE ADENSAMENTO APP/RL": {"rendimento_hh": 15.8, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "PLANTIO ENRIQUECIMENTO APP/RL": {"rendimento_hh": 10.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "PLANTIO MANUAL APP/RL": {"rendimento_hh": 15.8, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "PREPARO DE SOLO MEC C/ ADUB APP/RL": {"rendimento_hh": 0.0, "rendimento_hm": 2.0, "tipo": "Mecanizada"},
-    "PREPARO DE SOLO MEC C/ GRADE APP/RL": {"rendimento_hh": 0.0, "rendimento_hm": 2.0, "tipo": "Mecanizada"},
-    "PREPARO DE SOLO MEC S/ ADUB APP/RL": {"rendimento_hh": 0.0, "rendimento_hm": 1.5, "tipo": "Mecanizada"},
-    "PREPARO SOLO MEC CABEC COV C/ADUB APP/RL": {"rendimento_hh": 0.0, "rendimento_hm": 12.2, "tipo": "Mecanizada"},
-    "RECUPERACAO DE AREAS DEGRADADAS": {"rendimento_hh": 45.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "REPLANTIO APP/RL I": {"rendimento_hh": 6.2, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "REPLANTIO APP/RL II": {"rendimento_hh": 7.2, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "REPLANTIO APP/RL III": {"rendimento_hh": 10.1, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "REPLANTIO APP/RL IV": {"rendimento_hh": 11.5, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "REPLANTIO APP/RL V": {"rendimento_hh": 13.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "RESTAURAÇAO PASSIVA APP/RL": {"rendimento_hh": 0.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "ROÇADA MANUAL Impl. CD APP/RL I": {"rendimento_hh": 8.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "ROÇADA MANUAL Impl. CD APP/RL II": {"rendimento_hh": 11.2, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "ROÇADA MANUAL Impl. CD APP/RL III": {"rendimento_hh": 15.6, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "ROÇADA MANUAL Impl. CD APP/RL IV": {"rendimento_hh": 22.4, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "ROÇADA MANUAL Impl. CD APP/RL V": {"rendimento_hh": 44.5, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "ROÇADA MANUAL Impl. PL APP/RL I": {"rendimento_hh": 8.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "ROÇADA MANUAL Impl. PL APP/RL II": {"rendimento_hh": 11.2, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "ROÇADA MANUAL Impl. PL APP/RL III": {"rendimento_hh": 15.6, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "ROÇADA MANUAL Impl. PL APP/RL IV": {"rendimento_hh": 22.4, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "ROÇADA MANUAL Impl. PL APP/RL V": {"rendimento_hh": 44.5, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "ROÇADA MANUAL MAdap. APP/RL I": {"rendimento_hh": 8.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "ROÇADA MANUAL MAdap. APP/RL II": {"rendimento_hh": 11.2, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "ROÇADA MANUAL MAdap. APP/RL III": {"rendimento_hh": 15.6, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "ROÇADA MANUAL MAdap. APP/RL IV": {"rendimento_hh": 22.4, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "ROÇADA MANUAL MAdap. APP/RL V": {"rendimento_hh": 44.5, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "ROÇADA MANUAL Manut. APP/RL I": {"rendimento_hh": 8.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "ROÇADA MANUAL Manut. APP/RL II": {"rendimento_hh": 11.2, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "ROÇADA MANUAL Manut. APP/RL III": {"rendimento_hh": 15.6, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "ROÇADA MANUAL Manut. APP/RL IV": {"rendimento_hh": 22.4, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "ROÇADA MANUAL Manut. APP/RL V": {"rendimento_hh": 44.5, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "ROÇADA MECANIZADA PL APP/RL": {"rendimento_hh": 0.0, "rendimento_hm": 1.7, "tipo": "Mecanizada"},
-    "SEMEADURA DIRETA APP/RL": {"rendimento_hh": 8.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "COBERTURA DA SEMEADURA APP/RL I": {"rendimento_hh": 10.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "QUILOMETRAGEM EXCEDENTE (KM)": {"rendimento_hh": 1.0, "rendimento_hm": 0.0, "tipo": "Mecanizada"},
-    "LIMPEZA DE ÁREA QU. MAN APP/RL": {"rendimento_hh": 9.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "COMBATE À FORMIGAS Impl. CD APP/RL": {"rendimento_hh": 3.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "COMBATE À FORMIGAS Impl. PL APP/ RL": {"rendimento_hh": 3.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "COVEAM ÁREA NÃO SUBSOL Impl. PL APP/ RL": {"rendimento_hh": 38.2, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "ADUBAÇÃO QUÍM MAN DE BASE Impl.PL-APP/RL": {"rendimento_hh": 10.0, "rendimento_hm": 0.0, "tipo": "Manual"},
-    "IRRIGAÇÃO INICIAL MAN Impl. PL - APP/ RL": {"rendimento_hh": 13.1, "rendimento_hm": 0.0, "tipo": "Manual"},
-}
+import yaml
+
+_DATA_DIR = os.path.join(
+    os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    ),
+    "data",
+)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# COMPARATIVO MANUAL vs MECANIZADO — substitution mapping
-# ═══════════════════════════════════════════════════════════════════════════════
-COMPARATIVO_MANUAL_MEC = {
-    # ROCADA
-    "ROÇADA MANUAL Impl. CD APP/RL I": "ROÇADA MECANIZADA PL APP/RL",
-    "ROÇADA MANUAL Impl. CD APP/RL II": "ROÇADA MECANIZADA PL APP/RL",
-    "ROÇADA MANUAL Impl. CD APP/RL III": "ROÇADA MECANIZADA PL APP/RL",
-    "ROÇADA MANUAL Impl. CD APP/RL IV": "ROÇADA MECANIZADA PL APP/RL",
-    "ROÇADA MANUAL Impl. CD APP/RL V": "ROÇADA MECANIZADA PL APP/RL",
-    "ROÇADA MANUAL Impl. PL APP/RL I": "ROÇADA MECANIZADA PL APP/RL",
-    "ROÇADA MANUAL Impl. PL APP/RL II": "ROÇADA MECANIZADA PL APP/RL",
-    "ROÇADA MANUAL Impl. PL APP/RL III": "ROÇADA MECANIZADA PL APP/RL",
-    "ROÇADA MANUAL Impl. PL APP/RL IV": "ROÇADA MECANIZADA PL APP/RL",
-    "ROÇADA MANUAL Impl. PL APP/RL V": "ROÇADA MECANIZADA PL APP/RL",
-    "ROÇADA MANUAL MAdap. APP/RL I": "ROÇADA MECANIZADA PL APP/RL",
-    "ROÇADA MANUAL MAdap. APP/RL II": "ROÇADA MECANIZADA PL APP/RL",
-    "ROÇADA MANUAL MAdap. APP/RL III": "ROÇADA MECANIZADA PL APP/RL",
-    "ROÇADA MANUAL MAdap. APP/RL IV": "ROÇADA MECANIZADA PL APP/RL",
-    "ROÇADA MANUAL MAdap. APP/RL V": "ROÇADA MECANIZADA PL APP/RL",
-    "ROÇADA MANUAL Manut. APP/RL I": "ROÇADA MECANIZADA PL APP/RL",
-    "ROÇADA MANUAL Manut. APP/RL II": "ROÇADA MECANIZADA PL APP/RL",
-    "ROÇADA MANUAL Manut. APP/RL III": "ROÇADA MECANIZADA PL APP/RL",
-    "ROÇADA MANUAL Manut. APP/RL IV": "ROÇADA MECANIZADA PL APP/RL",
-    "ROÇADA MANUAL Manut. APP/RL V": "ROÇADA MECANIZADA PL APP/RL",
-    # CAPINA
-    "CAPINA MANUAL COROA Impl. CD APP/ RL I": "CAPINA QUÍM MEC TOTAL APP/RL",
-    "CAPINA MANUAL COROA Impl. CD APP/ RL II": "CAPINA QUÍM MEC TOTAL APP/RL",
-    "CAPINA MANUAL COROA Impl. CD APP/ RL III": "CAPINA QUÍM MEC TOTAL APP/RL",
-    "CAPINA MANUAL COROA Impl. CD APP/ RL IV": "CAPINA QUÍM MEC TOTAL APP/RL",
-    "CAPINA MANUAL COROA Impl. CD APP/ RL V": "CAPINA QUÍM MEC TOTAL APP/RL",
-    "CAPINA MANUAL COROA Impl. PL - APP/ RL I": "CAPINA QUÍM MEC TOTAL APP/RL",
-    "CAPINA MANUAL COROA Impl. PL - APP/ RL II": "CAPINA QUÍM MEC TOTAL APP/RL",
-    "CAPINA MANUAL COROA Impl. PL - APP/ RL III": "CAPINA QUÍM MEC TOTAL APP/RL",
-    "CAPINA MANUAL COROA Impl. PL - APP/ RL IV": "CAPINA QUÍM MEC TOTAL APP/RL",
-    "CAPINA MANUAL COROA Impl. PL - APP/ RL V": "CAPINA QUÍM MEC TOTAL APP/RL",
-    "CAPINA MANUAL COROAMENTO MAdap. APP/RL I": "CAPINA QUÍM MEC TOTAL APP/RL",
-    "CAPINA MANUAL COROAMENTO MAdap. APP/RL II": "CAPINA QUÍM MEC TOTAL APP/RL",
-    "CAPINA MANUAL COROAMENTO MAdap. APP/RL III": "CAPINA QUÍM MEC TOTAL APP/RL",
-    "CAPINA MANUAL COROAMENTO MAdap. APP/RL IV": "CAPINA QUÍM MEC TOTAL APP/RL",
-    "CAPINA MANUAL COROAMENTO MAdap. APP/RL V": "CAPINA QUÍM MEC TOTAL APP/RL",
-    "CAPINA MANUAL COROAMENTO Manut. APP/RL I": "CAPINA QUÍM MEC TOTAL APP/RL",
-    "CAPINA MANUAL COROAMENTO Manut. APP/RL II": "CAPINA QUÍM MEC TOTAL APP/RL",
-    "CAPINA MANUAL COROAMENTO Manut. APP/RL III": "CAPINA QUÍM MEC TOTAL APP/RL",
-    "CAPINA MANUAL COROAMENTO Manut. APP/RL IV": "CAPINA QUÍM MEC TOTAL APP/RL",
-    "CAPINA MANUAL COROAMENTO Manut. APP/RL V": "CAPINA QUÍM MEC TOTAL APP/RL",
-    # LIMPEZA DE AREA
-    "LIMPEZA DE AREA QUIM. Impl. CD APP/RL": "LIMPEZA DE AREA QUIM. MEC APP/RL",
-    "LIMPEZA DE AREA QUIM. MAN APP/RL": "LIMPEZA DE AREA QUIM. MEC APP/RL",
-    "LIMPEZA DE ÁREA QU. MAN APP/RL": "LIMPEZA DE AREA QUIM. MEC APP/RL",
-    # COVEAMENTO
-    "COVEAM AREA NAO SUBSOL Impl. PL APP/ RL": "COVEAMENTO - MOTOCOVEADOR PL APP/RL",
-    "COVEAM ÁREA NÃO SUBSOL Impl. PL APP/ RL": "COVEAMENTO - MOTOCOVEADOR PL APP/RL",
-    "COVEAM AREA NAO SUBSOL MAdap. PL APP/ RL": "COVEAMENTO - MOTOCOVEADOR MAdap. APP/RL",
-    "COVEAMENTO AREA NAO SUBSOL APP/RL": "COVEAMENTO - MOTOCOVEADOR PL APP/RL",
-    "COVEAMENTO - MOTOCOVEADOR MAdap. APP/RL": "COVEAMENTO - MOTOCOVEADOR PL APP/RL",
-    "COVEAMENTO - MOTOCOVEADOR Manut. APP/RL": "COVEAMENTO - MOTOCOVEADOR PL APP/RL",
-    # APLICACAO QUIMICA
-    "APLIC QUIM (LIQ) C/ DRONE (EXTRA)": "APLIC QUIM (LIQ) C/ DRONE TOT APP/RL",
-}
+def _carregar_yaml_constantes(nome_arquivo, nome_constante):
+    caminho = os.path.join(_DATA_DIR, nome_arquivo)
+    try:
+        with open(caminho, encoding="utf-8") as f:
+            dados = yaml.safe_load(f)
+    except (OSError, yaml.YAMLError) as exc:
+        raise RuntimeError(
+            f"Falha ao carregar constantes de {caminho} ({nome_constante}): {exc}"
+        ) from exc
+    if not isinstance(dados, dict):
+        raise RuntimeError(
+            f"{caminho} deveria ser um mapeamento, retornou {type(dados).__name__}"
+        )
+    return dados
+
+
+CT317_HARDCODE_HH_BASE = _carregar_yaml_constantes(
+    "ct317_hardcode_hh_base.yaml", "CT317_HARDCODE_HH_BASE"
+)
+
+COMPARATIVO_MANUAL_MEC = _carregar_yaml_constantes(
+    "comparativo_manual_mec.yaml", "COMPARATIVO_MANUAL_MEC"
+)
+
+DEFAULT_DEPARA_EXAME_CT317 = _carregar_yaml_constantes(
+    "default_depara_exame_ct317.yaml", "DEFAULT_DEPARA_EXAME_CT317"
+)
+
+del _carregar_yaml_constantes
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
