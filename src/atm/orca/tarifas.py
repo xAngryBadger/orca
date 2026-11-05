@@ -249,6 +249,28 @@ def _score_payload_preco(payload):
     pr = float(payload.get("preco_ha", 0) or payload.get("preco_unit", 0) or 0)
     return (1 if hh > 0 else 0, hh, 1 if pr > 0 else 0, pr, hm)
 
+_PRECO_FINAL_JSON_TTL_PADRAO = 3600.0
+
+
+def invalidate_preco_final_cache():
+    global _PRECO_FINAL_JSON_CACHE
+    _PRECO_FINAL_JSON_CACHE = {"path": "", "mtime": None, "mapa": {}}
+
+
+def _preco_final_json_ttl(cfg=None):
+    ttl = _PRECO_FINAL_JSON_TTL_PADRAO
+    if isinstance(cfg, dict):
+        bruto = cfg.get("preco_final_json_ttl", ttl)
+        try:
+            convertido = float(bruto)
+        except (TypeError, ValueError):
+            return _PRECO_FINAL_JSON_TTL_PADRAO
+        if convertido > 0:
+            return convertido
+        return 0.0
+    return _PRECO_FINAL_JSON_TTL_PADRAO
+
+
 def _carregar_mapa_preco_final_json(cfg=None):
     global _PRECO_FINAL_JSON_CACHE
 
@@ -258,6 +280,7 @@ def _carregar_mapa_preco_final_json(cfg=None):
             caminho = c
             break
     if not caminho:
+        invalidate_preco_final_cache()
         return {}
 
     try:
@@ -265,11 +288,16 @@ def _carregar_mapa_preco_final_json(cfg=None):
     except OSError:
         return {}
 
+    ttl = _preco_final_json_ttl(cfg)
+    agora = datetime.datetime.now().timestamp()
+
     cache = _PRECO_FINAL_JSON_CACHE or {}
+    expira_em = cache.get("expira_em", 0.0)
     if (
         cache.get("path") == caminho
         and cache.get("mtime") == mtime
         and isinstance(cache.get("mapa"), dict)
+        and (ttl <= 0 or agora < float(expira_em))
     ):
         return dict(cache.get("mapa") or {})
 
@@ -357,7 +385,12 @@ def _carregar_mapa_preco_final_json(cfg=None):
                 mapa[nome] = payload
                 idx_norm[nk] = nome
 
-    _PRECO_FINAL_JSON_CACHE = {"path": caminho, "mtime": mtime, "mapa": mapa}
+    _PRECO_FINAL_JSON_CACHE = {
+        "path": caminho,
+        "mtime": mtime,
+        "mapa": mapa,
+        "expira_em": agora + ttl,
+    }
     return dict(mapa)
 
 
