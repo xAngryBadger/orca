@@ -70,7 +70,7 @@ def _render_with_session(response: HTMLResponse, session_id: str) -> HTMLRespons
 
 
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
+def index(request: Request):
     """Painel principal — botões de ação."""
     session_id = _get_session_id(request)
     state = obter_estado(session_id)
@@ -91,7 +91,7 @@ async def index(request: Request):
 
 
 @app.post("/carregar-micro", response_class=HTMLResponse)
-async def post_carregar_micro(request: Request, session_id: str = Form(...)):
+def post_carregar_micro(request: Request, session_id: str = Form(...)):
     """Carrega microatual.xlsx."""
     state = carregar_micro(session_id)
     
@@ -111,7 +111,7 @@ async def post_carregar_micro(request: Request, session_id: str = Form(...)):
 
 
 @app.post("/carregar-tarifas", response_class=HTMLResponse)
-async def post_carregar_tarifas(request: Request, session_id: str = Form(...)):
+def post_carregar_tarifas(request: Request, session_id: str = Form(...)):
     """Carrega ct317real.xlsx (tarifas)."""
     state = carregar_tarifas(session_id)
     
@@ -131,7 +131,7 @@ async def post_carregar_tarifas(request: Request, session_id: str = Form(...)):
 
 
 @app.post("/validar", response_class=HTMLResponse)
-async def post_validar(request: Request, session_id: str = Form(...)):
+def post_validar(request: Request, session_id: str = Form(...)):
     """Valida se micro e tarifas estão carregados."""
     state = validar_dados(session_id)
     
@@ -151,11 +151,13 @@ async def post_validar(request: Request, session_id: str = Form(...)):
 
 
 @app.post("/simular", response_class=HTMLResponse)
-async def post_simular(
+def post_simular(
     request: Request,
     session_id: str = Form(...),
-    jornadas: str = Form("7.5,8.0,9.0"),
-    equipes: str = Form("2,3,4,5"),
+    jornadas: str = Form("4.6,6.0,8.0"),
+    equipes: str = Form("4,6,9,12"),
+    executores_base: int = Form(9),
+    jornada_base: float = Form(4.6),
 ):
     """Roda grade de cenários (jornada × equipe) pelo scheduler REAL."""
     try:
@@ -178,7 +180,7 @@ async def post_simular(
         )
         return _render_with_session(response, session_id)
     
-    state = simular(session_id, jornadas_l, equipes_l)
+    state = simular(session_id, jornadas_l, equipes_l, executores_base, jornada_base)
     
     response = templates.TemplateResponse(
         "painel.html",
@@ -196,11 +198,11 @@ async def post_simular(
 
 
 @app.post("/simular-unico", response_class=HTMLResponse)
-async def post_simular_unico(
+def post_simular_unico(
     request: Request,
     session_id: str = Form(...),
-    jornada: float = Form(7.5),
-    equipe: int = Form(4),
+    jornada: float = Form(4.6),
+    equipe: int = Form(9),
 ):
     """Roda UM cenário específico."""
     state = simular_unico(session_id, jornada, equipe)
@@ -221,12 +223,12 @@ async def post_simular_unico(
 
 
 @app.post("/comparar-grade", response_class=HTMLResponse)
-async def post_comparar_grade(
+def post_comparar_grade(
     request: Request,
     session_id: str = Form(...),
 ):
-    """Atalho: roda grade padrão (jornadas 7.5/8/9 × equipes 2/3/4/5)."""
-    state = simular(session_id, [7.5, 8.0, 9.0], [2, 3, 4, 5])
+    """Atalho: roda grade padrão (jornadas 4.6/6/8 × equipes 4/6/9/12)."""
+    state = simular(session_id, [4.6, 6.0, 8.0], [4, 6, 9, 12], executores_base=9, jornada_base=4.6)
     
     response = templates.TemplateResponse(
         "painel.html",
@@ -244,7 +246,7 @@ async def post_comparar_grade(
 
 
 @app.get("/resultado", response_class=HTMLResponse)
-async def get_resultado(request: Request, session_id: Optional[str] = None):
+def get_resultado(request: Request, session_id: Optional[str] = None):
     """Painel de resultados — lista cenários com dias/meses/uso%."""
     sid = session_id or _get_session_id(request)
     state = obter_estado(sid)
@@ -262,7 +264,7 @@ async def get_resultado(request: Request, session_id: Optional[str] = None):
 
 
 @app.post("/limpar", response_class=HTMLResponse)
-async def post_limpar(request: Request, session_id: str = Form(...)):
+def post_limpar(request: Request, session_id: str = Form(...)):
     """Limpa sessão e volta ao painel inicial."""
     limpar_sessao(session_id)
     

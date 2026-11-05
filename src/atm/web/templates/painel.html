@@ -83,13 +83,23 @@
     <h2 class="text-lg font-semibold text-gray-900 mb-3">Simular Cenários</h2>
     
     <div class="space-y-3 mb-4">
-        <div>
-            <label class="label">Jornadas (horas, separadas por vírgula)</label>
-            <input type="text" name="jornadas" value="7.5,8.0,9.0" class="input-field" id="jornadas-input">
+        <div class="grid grid-cols-2 gap-3">
+            <div>
+                <label class="label">Operários base (executores)</label>
+                <input type="number" name="executores_base" value="9" min="1" max="50" class="input-field" id="executores-base-input">
+            </div>
+            <div>
+                <label class="label">Jornada base (horas/dia)</label>
+                <input type="number" name="jornada_base" value="4.6" step="0.1" min="1" max="12" class="input-field" id="jornada-base-input">
+            </div>
         </div>
         <div>
-            <label class="label">Equipes (número de operários, separadas por vírgula)</label>
-            <input type="text" name="equipes" value="2,3,4,5" class="input-field" id="equipes-input">
+            <label class="label">Jornadas para grade (horas, separadas por vírgula)</label>
+            <input type="text" name="jornadas" value="4.6,6.0,8.0" class="input-field" id="jornadas-input">
+        </div>
+        <div>
+            <label class="label">Equipes para grade (número de operários, separadas por vírgula)</label>
+            <input type="text" name="equipes" value="4,6,9,12" class="input-field" id="equipes-input">
         </div>
     </div>
     
@@ -98,6 +108,8 @@
             <input type="hidden" name="session_id" value="{{ session_id }}">
             <input type="hidden" name="jornadas" id="jornadas-hidden">
             <input type="hidden" name="equipes" id="equipes-hidden">
+            <input type="hidden" name="executores_base" id="executores-base-hidden">
+            <input type="hidden" name="jornada_base" id="jornada-base-hidden">
             <button type="submit" class="btn btn-success w-full" {% if not tem_micro or not tem_tarifas %}disabled{% endif %} id="simular-btn">
                 <span id="simular-loading" class="htmx-indicator mr-2"></span>
                 Simular Grade (Jornada × Equipe)
@@ -108,7 +120,7 @@
             <input type="hidden" name="session_id" value="{{ session_id }}">
             <button type="submit" class="btn btn-primary w-full" {% if not tem_micro or not tem_tarifas %}disabled{% endif %} id="grade-btn">
                 <span id="grade-loading" class="htmx-indicator mr-2"></span>
-                Comparar Grade Padrão (7.5/8/9h × 2/3/4/5 eq)
+                Comparar Grade Padrão (4.6/6/8h × 4/6/9/12 ops)
             </button>
         </form>
         
@@ -117,11 +129,11 @@
             <div class="grid grid-cols-2 gap-3">
                 <div>
                     <label class="label">Jornada única</label>
-                    <input type="number" name="jornada" value="7.5" step="0.5" min="1" max="12" class="input-field">
+                    <input type="number" name="jornada" value="4.6" step="0.5" min="1" max="12" class="input-field">
                 </div>
                 <div>
                     <label class="label">Equipe única</label>
-                    <input type="number" name="equipe" value="4" min="1" max="20" class="input-field">
+                    <input type="number" name="equipe" value="9" min="1" max="50" class="input-field">
                 </div>
             </div>
             <button type="submit" class="btn btn-secondary w-full" {% if not tem_micro or not tem_tarifas %}disabled{% endif %} id="unico-btn">
@@ -194,6 +206,12 @@
     });
     document.getElementById('equipes-input')?.addEventListener('input', function() {
         document.getElementById('equipes-hidden').value = this.value;
+    });
+    document.getElementById('executores-base-input')?.addEventListener('input', function() {
+        document.getElementById('executores-base-hidden').value = this.value;
+    });
+    document.getElementById('jornada-base-input')?.addEventListener('input', function() {
+        document.getElementById('jornada-base-hidden').value = this.value;
     });
 </script>
 {% endblock %}

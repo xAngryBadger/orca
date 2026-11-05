@@ -18,6 +18,12 @@ from ..orca.io import (
 from ..orca.tarifas import carregar_stg_tarifas
 from ..orca.config import carregar_config
 from ..orca.schemas import MicroRow, micro_de_dataframe, tarifas_de_dict
+from ..orca.scheduler_core import _JORNADA_DEFAULT_H
+
+
+# Defaults reais do scheduler (não do config.json)
+_JORNADA_DEFAULT = _JORNADA_DEFAULT_H  # 4.6h
+_EXECUTORES_DEFAULT = 9  # padrão do prompt interativo
 
 
 _executor = ThreadPoolExecutor(max_workers=2)
@@ -174,16 +180,23 @@ def _construir_demanda(micro_rows: List[MicroRow], tarifas: Dict[str, Any]) -> D
     return demanda
 
 
-def simular(session_id: str, jornadas: List[float], equipes: List[int]) -> SessionState:
-    """Roda a grade de cenários pelo scheduler REAL via thread pool."""
+def simular(
+    session_id: str,
+    jornadas: List[float],
+    equipes: List[int],
+    executores_base: int = _EXECUTORES_DEFAULT,
+    jornada_base: float = _JORNADA_DEFAULT,
+) -> SessionState:
+    """Roda a grade de cenários pelo scheduler REAL via thread pool.
+    
+    Args:
+        executores_base: total de operários (default 9, do scheduler)
+        jornada_base: horas por dia (default 4.6h, do scheduler)
+    """
     state = _get_or_create_session(session_id)
     state.erro = None
     
     try:
-        config = state.config or carregar_config()
-        jornada_base = float(config.get("jornada", 7.5))
-        executores_base = int(config.get("executores", 4))
-        
         # Constrói demanda real
         demanda = _construir_demanda(state.micro_rows, state.tarifas)
         
@@ -208,16 +221,16 @@ def simular(session_id: str, jornadas: List[float], equipes: List[int]) -> Sessi
     return state
 
 
-def simular_unico(session_id: str, jornada: float, equipe: int) -> SessionState:
+def simular_unico(
+    session_id: str,
+    jornada: float,
+    equipe: int,
+) -> SessionState:
     """Roda UM cenário pelo scheduler REAL."""
     state = _get_or_create_session(session_id)
     state.erro = None
     
     try:
-        config = state.config or carregar_config()
-        jornada_base = float(config.get("jornada", 7.5))
-        executores_base = int(config.get("executores", 4))
-        
         demanda = _construir_demanda(state.micro_rows, state.tarifas)
         
         if not demanda:
