@@ -257,34 +257,40 @@ class TestMultiplasTurmas(unittest.TestCase):
 
 class TestMemoizacaoDoGate(unittest.TestCase):
     def test_gate_memoizado_equivalente_ao_original(self):
-        """A prova que a memoização não muda o resultado."""
+        """A prova que a memoização não muda o resultado.
+
+        O gate é chamado dentro de `engine_pkg.engine`, então é lá que o
+        contador tem que ser instalado (scheduler_core apenas re-exporta).
+        """
+        from atm.orca import engine_pkg
+
         demanda = _demanda_3_talhoes()
         chamadas = {"n": 0}
-        original = sc.pode_agendar_atividade_cascata
+        original = engine_pkg.engine.pode_agendar_atividade_cascata
 
         def contar(*a, **k):
             chamadas["n"] += 1
             return original(*a, **k)
 
-        sc.pode_agendar_atividade_cascata = contar
+        engine_pkg.engine.pode_agendar_atividade_cascata = contar
         try:
             crono_a, dia_a, _ = sc._executar_scheduler_loop(_config(dict(demanda)))
         finally:
-            sc.pode_agendar_atividade_cascata = original
+            engine_pkg.engine.pode_agendar_atividade_cascata = original
 
-        sch._ha_nao_bloqueado_version[0] = 0
+        self.assertGreater(chamadas["n"], 0, "contador não registrou chamadas")
         chamadas["n"] = 0
-        sc.pode_agendar_atividade_cascata = contar
+
+        engine_pkg.engine.pode_agendar_atividade_cascata = contar
         try:
             crono_b, dia_b, _ = sc._executar_scheduler_loop(_config(dict(demanda)))
         finally:
-            sc.pode_agendar_atividade_cascata = original
+            engine_pkg.engine.pode_agendar_atividade_cascata = original
 
         assinatura_a = sorted((c["Dia"], c["Talhao"], c["Atividade"], round(c["HH"], 2)) for c in crono_a)
         assinatura_b = sorted((c["Dia"], c["Talhao"], c["Atividade"], round(c["HH"], 2)) for c in crono_b)
         self.assertEqual(dia_a, dia_b)
         self.assertEqual(assinatura_a, assinatura_b, "memoização mudou o cronograma")
-        self.assertGreater(chamadas["n"], 0, "contador não registrou chamadas")
 
 
 if __name__ == "__main__":
