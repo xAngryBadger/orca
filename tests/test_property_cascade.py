@@ -349,12 +349,18 @@ if __name__ == "__main__":
     loader = unittest.TestLoader()
     suite = unittest.TestSuite()
 
-    class PropertyCascadeTests:
+    class PropertyCascadeTests(unittest.TestCase):
         pass
 
-    for name in dir():
-        if name.startswith("test_"):
-            setattr(PropertyCascadeTests, name, globals()[name])
+    # Wrap test functions as instance methods (they need self)
+    test_names = [name for name in dir() if name.startswith("test_")]
+    for name in test_names:
+        func = globals()[name]
+        def make_test(f):
+            def test_method(self):
+                f()
+            return test_method
+        setattr(PropertyCascadeTests, name, make_test(func))
 
     suite.addTests(loader.loadTestsFromTestCase(PropertyCascadeTests))
     runner = unittest.TextTestRunner(verbosity=2)

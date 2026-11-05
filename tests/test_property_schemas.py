@@ -400,12 +400,21 @@ if __name__ == "__main__":
     import unittest
     loader = unittest.TestLoader()
     suite = unittest.TestSuite()
-    # Adiciona testes como métodos de uma classe dummy
-    class PropertyTests:
+
+    class PropertyTests(unittest.TestCase):
         pass
-    for name in dir():
-        if name.startswith("test_"):
-            setattr(PropertyTests, name, globals()[name])
+
+    # Wrap test functions as instance methods (they need self)
+    test_names = [name for name in dir() if name.startswith("test_")]
+    for name in test_names:
+        func = globals()[name]
+        # Create a method that calls the function
+        def make_test(f):
+            def test_method(self):
+                f()
+            return test_method
+        setattr(PropertyTests, name, make_test(func))
+
     suite.addTests(loader.loadTestsFromTestCase(PropertyTests))
     runner = unittest.TextTestRunner(verbosity=2)
     runner.run(suite)
