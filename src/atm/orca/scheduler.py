@@ -2,7 +2,8 @@
 
 import calendar
 import math
-import threading
+import time
+from collections import OrderedDict
 from collections import defaultdict
 
 from rich.table import Table
@@ -133,7 +134,7 @@ def _min_fase_cascata_por_talhao(
         return {}
     bloqueadas = set(atividades_bloqueadas or [])
     por_talhao = defaultdict(list)
-    for (talhao, atv), hh in demanda_global.items():
+    for (talhao, atv), hh in sorted(demanda_global.items()):
         if hh <= 0.01:
             continue
         if usar_bloqueio_global and atv in bloqueadas:
@@ -238,32 +239,68 @@ def diagnosticar_sequencia_atividades(atividades_reais, seq_cfg, modo):
         ok("Todas as atividades possuem fase explicita na sequencia.")
 
 
-_ha_nao_bloqueado_cache = {}
+# LRU+TTL cache configuration for blocking cache
+_HA_NAO_BLOQUEADO_MAXSIZE = 100
+_HA_NAO_BLOQUEADO_TTL = 3600  # seconds
+
+# LRU cache: OrderedDict where key = frozenset(bloqueadas), value = (version, result, timestamp)
+_ha_nao_bloqueado_cache = OrderedDict()
+# Version counter - readable without consuming (list with single element)
 _ha_nao_bloqueado_version = [0]
-_ha_nao_bloqueado_lock = threading.Lock()
+
+
+def configure_blocking_cache(maxsize: int = 100, ttl: int = 3600):
+    """Configure the blocking cache LRU maxsize and TTL."""
+    global _HA_NAO_BLOQUEADO_MAXSIZE, _HA_NAO_BLOQUEADO_TTL, _ha_nao_bloqueado_cache
+    _HA_NAO_BLOQUEADO_MAXSIZE = maxsize
+    _HA_NAO_BLOQUEADO_TTL = ttl
+    # Trim cache if new maxsize is smaller
+    while len(_ha_nao_bloqueado_cache) > _HA_NAO_BLOQUEADO_MAXSIZE:
+        _ha_nao_bloqueado_cache.popitem(last=False)
 
 
 def _demanda_global_touch():
-    with _ha_nao_bloqueado_lock:
-        _ha_nao_bloqueado_version[0] += 1
+    """Increment version for cache invalidation. No lock in hot path."""
+    _ha_nao_bloqueado_version[0] += 1
+
+
+def _cache_expired(ts: float) -> bool:
+    """Check if cache entry has expired based on TTL."""
+    return (time.time() - ts) > _HA_NAO_BLOQUEADO_TTL
 
 
 def _ha_trabalho_nao_bloqueado(demanda_global, atividades_bloqueadas):
-    """True se ainda existe demanda >0 para atividade fora do grupo bloqueado."""
+    """True se ainda existe demanda >0 para atividade fora do grupo bloqueado.
+
+    Uses LRU+TTL cache with version-based invalidation. Zero locks in hot path.
+    """
     bloqueadas = set(atividades_bloqueadas or [])
     bkey = frozenset(bloqueadas)
-    with _ha_nao_bloqueado_lock:
-        ver = _ha_nao_bloqueado_version[0]
-        cached = _ha_nao_bloqueado_cache.get(bkey)
-        if cached and cached[0] == ver:
-            return cached[1]
+    current_version = _ha_nao_bloqueado_version[0]
+
+    # Check cache - no lock
+    cached = _ha_nao_bloqueado_cache.get(bkey)
+    if cached is not None:
+        ver, result, ts = cached
+        if ver == current_version and not _cache_expired(ts):
+            # LRU: move to end on hit
+            _ha_nao_bloqueado_cache.move_to_end(bkey)
+            return result
+        # Expired or invalidated - remove
+        _ha_nao_bloqueado_cache.pop(bkey, None)
+
+    # Compute result
     for (_, atv), hh in demanda_global.items():
         if hh > 0.01 and atv not in bloqueadas:
-            with _ha_nao_bloqueado_lock:
-                _ha_nao_bloqueado_cache[bkey] = (ver, True)
+            _ha_nao_bloqueado_cache[bkey] = (current_version, True, time.time())
+            # Enforce maxsize - LRU eviction
+            if len(_ha_nao_bloqueado_cache) > _HA_NAO_BLOQUEADO_MAXSIZE:
+                _ha_nao_bloqueado_cache.popitem(last=False)
             return True
-    with _ha_nao_bloqueado_lock:
-        _ha_nao_bloqueado_cache[bkey] = (ver, False)
+
+    _ha_nao_bloqueado_cache[bkey] = (current_version, False, time.time())
+    if len(_ha_nao_bloqueado_cache) > _HA_NAO_BLOQUEADO_MAXSIZE:
+        _ha_nao_bloqueado_cache.popitem(last=False)
     return False
 
 
