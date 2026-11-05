@@ -32,10 +32,14 @@ from .ui import (
 )
 
 
+_COLUNAS_OBRIGATORIAS_MICRO = ("fazenda", "chave", "area", "atividade")
+
+
 def encontrar_coluna(cols, campo, modo_auto=False, arquivo=None, aba=None):
     """Try KNOWN_COLUMNS exact matches first, then fuzzy fallback.
 
-    In modo_auto (batch), raises OrcaValidationError if required column not found.
+    In modo_auto (batch), raises OrcaValidationError if a REQUIRED column is not
+    found. Optional columns (municipio, estado) never raise: they return None.
     In interactive mode, returns None and caller handles manual selection.
     """
     known = KNOWN_COLUMNS.get(campo, [])
@@ -50,7 +54,7 @@ def encontrar_coluna(cols, campo, modo_auto=False, arquivo=None, aba=None):
             if kn in cn or cn in kn:
                 return original
     # Not found
-    if modo_auto:
+    if modo_auto and campo in _COLUNAS_OBRIGATORIAS_MICRO:
         available = ", ".join(cols) if cols else "(nenhuma)"
         msg = (
             f"Coluna obrigatória '{campo}' não encontrada"
