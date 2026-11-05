@@ -18,11 +18,11 @@ _HH_EPSILON = 0.01
 DIAS_UTEIS_POR_MES = 22.0
 _JORNADA_DEFAULT_H = 4.6
 
-from .app import (
+from .domain.scope import (
     _menu_ajustar_escopo_atividades,
     _proximo_caminho_livre,
-    avaliar_terreno,
 )
+from .domain.terrain import avaliar_terreno
 from .comparativo_config import _configurar_modo_comparativo
 from .comparativo_mec import (
     _atividades_com_mecanizado_disponivel,
