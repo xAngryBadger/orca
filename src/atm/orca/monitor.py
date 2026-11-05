@@ -252,64 +252,35 @@ def _emitir_monitor_rendimentos(
 
 
 def _abrir_monitor_janela(feed="meta", session_id: str | None = None):
-    """
-    Abre uma janela separada com o monitor SRF.
-    Usa subprocess para iniciar um terminal novo.
-    """
-    import subprocess
+    """Abre o monitor — modo HEADLESS (sem spawn de terminal).
 
+    A versão anterior usava ``subprocess.Popen`` para criar uma janela de
+    terminal (``cmd /k`` no Windows, kitty/foot/wezterm/... no Linux). Isso
+    tinha três problemas: múltiplas janelas sem health check, script externo
+    ``srf_monitor.py`` não versionado, e risco real de travar a máquina se o
+    processo filho travasse.
+
+    Agora o monitor é headless: o estado vive no JSON de sessão (via
+    ``orca_monitor_state``) e qualquer consumidor — CLI, web, MCP — lê esse
+    arquivo. Nenhum processo é criado aqui.
+    """
     from . import ui as _ui  # lazy import to avoid circular
 
     try:
         target_session_id = session_id or _MONITOR_SESSION_ID
-        script_monitor = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "srf_monitor.py",
-        )
+        path = _resolve_state_path(target_session_id)
 
-        if not os.path.isfile(script_monitor):
-            _ui.aviso(f"Script do monitor nao encontrado: {script_monitor}")
+        if path is None:
+            _ui.aviso(
+                "Monitor headless indisponível: módulo orca_monitor_state não carregou. "
+                "O scheduler funciona normalmente sem monitor."
+            )
             return False
 
-        cmd = [
-            sys.executable,
-            script_monitor,
-            "--feed", str(feed),
-            "--session-id", str(target_session_id),
-        ]
-
-        if os.name == "nt":
-            subprocess.Popen(
-                ["start", "cmd", "/k"] + cmd,
-                shell=True,
-                creationflags=subprocess.CREATE_NEW_CONSOLE,
-            )
-        else:
-            terminais = [
-                ["kitty", "-e"] + cmd,
-                ["foot"] + cmd,
-                ["wezterm", "start", "--"] + cmd,
-                ["alacritty", "-e"] + cmd,
-                ["gnome-terminal", "--"] + cmd,
-                ["konsole", "--hold", "-e"] + cmd,
-                ["xfce4-terminal", "-e"] + cmd,
-                ["xterm", "-hold", "-e"] + cmd,
-            ]
-            for term_cmd in terminais:
-                try:
-                    subprocess.Popen(
-                        term_cmd,
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                    )
-                    break
-                except FileNotFoundError:
-                    continue
-            else:
-                _ui.aviso("Nenhum terminal compativel encontrado para abrir o monitor.")
-                return False
-
-        _ui.ok(f"Monitor aberto (session_id={target_session_id}, feed={feed})")
+        _ui.ok(
+            f"Monitor headless ativo (session_id={target_session_id}, feed={feed}). "
+            f"Estado em: {path}"
+        )
         return True
     except Exception as e:
         _ui.aviso(f"Erro ao abrir monitor: {e}")
