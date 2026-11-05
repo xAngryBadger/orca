@@ -344,24 +344,19 @@ def test_determinismo_rng_interno():
     assert seq1 == seq2
 
 
-if __name__ == "__main__":
-    import unittest
-    loader = unittest.TestLoader()
-    suite = unittest.TestSuite()
+# Registro em import-time: os testes property são descobertos pelo loader
+# de `python -m unittest` sem precisar rodar como script.
+import unittest
 
-    class PropertyCascadeTests(unittest.TestCase):
-        pass
+class PropertyCascadeTests(unittest.TestCase):
+    pass
 
-    # Wrap test functions as instance methods (they need self)
-    test_names = [name for name in dir() if name.startswith("test_")]
-    for name in test_names:
-        func = globals()[name]
-        def make_test(f):
-            def test_method(self):
-                f()
-            return test_method
-        setattr(PropertyCascadeTests, name, make_test(func))
-
-    suite.addTests(loader.loadTestsFromTestCase(PropertyCascadeTests))
-    runner = unittest.TextTestRunner(verbosity=2)
-    runner.run(suite)
+# Wrap test functions as instance methods (they need self)
+test_names = [name for name in dir() if name.startswith("test_")]
+for name in test_names:
+    func = globals()[name]
+    def make_test(f):
+        def test_method(self):
+            f()
+        return test_method
+    setattr(PropertyCascadeTests, name, make_test(func))

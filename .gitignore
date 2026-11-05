@@ -16,6 +16,7 @@ config.json
 
 # Generated outputs
 data/dossies/*.xlsx
+data/planilhas/*.xlsx
 *.xlsx~
 cronograma_*.xlsx
 *-backup*.xlsx

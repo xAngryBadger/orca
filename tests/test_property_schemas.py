@@ -395,26 +395,20 @@ def test_tarifact_determinismo_validacao():
     assert casos1 == casos2
 
 
-if __name__ == "__main__":
-    # Execução manual: roda todos os testes property-based
-    import unittest
-    loader = unittest.TestLoader()
-    suite = unittest.TestSuite()
+# Registro em import-time: os testes property são descobertos pelo loader
+# de `python -m unittest` sem precisar rodar como script.
+import unittest
 
-    class PropertyTests(unittest.TestCase):
-        pass
+class PropertyTests(unittest.TestCase):
+    pass
 
-    # Wrap test functions as instance methods (they need self)
-    test_names = [name for name in dir() if name.startswith("test_")]
-    for name in test_names:
-        func = globals()[name]
-        # Create a method that calls the function
-        def make_test(f):
-            def test_method(self):
-                f()
-            return test_method
-        setattr(PropertyTests, name, make_test(func))
-
-    suite.addTests(loader.loadTestsFromTestCase(PropertyTests))
-    runner = unittest.TextTestRunner(verbosity=2)
-    runner.run(suite)
+# Wrap test functions as instance methods (they need self)
+test_names = [name for name in dir() if name.startswith("test_")]
+for name in test_names:
+    func = globals()[name]
+    # Create a method that calls the function
+    def make_test(f):
+        def test_method(self):
+            f()
+        return test_method
+    setattr(PropertyTests, name, make_test(func))
