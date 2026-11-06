@@ -476,6 +476,50 @@ def _find_preco_final_sheet(xls):
             return s
     return None
 
+def _ler_ct_preco_final(caminho_ct, pf):
+    """Le a sheet de preco final achando o cabecalho REAL (2 linhas).
+
+    Layouts vistos: cabecalho na linha 0 (planilha antiga), ou 3+ linhas de
+    titulo + linha com 'N | OPERACOES | ... | PREÇO R$ | Custo Hora' + sub-linha
+    'hh/ha, hm/ha' (CT317 real). Mergeia a sub-linha no nome da coluna para o
+    parser por tokens achar Rendimento hh/ha vs hm/ha. Sem cabecalho detectado,
+    devolve header=0 (o parser legado por indice assume).
+    """
+    try:
+        df0 = ExcelReader.read(caminho_ct, sheet_name=pf, header=None, nrows=15)
+    except Exception:
+        return ExcelReader.read(caminho_ct, sheet_name=pf, header=0)
+
+    hdr = None
+    for i in range(len(df0)):
+        row_txt = " ".join(remover_acentos(str(x)).lower() for x in df0.iloc[i].tolist())
+        if "operac" in row_txt and ("preco" in row_txt or "valor" in row_txt):
+            hdr = i
+            break
+    if hdr is None:
+        return ExcelReader.read(caminho_ct, sheet_name=pf, header=0)
+
+    sub = None
+    if hdr + 1 < len(df0):
+        sub = [str(x).strip() if pd.notna(x) else "" for x in df0.iloc[hdr + 1].tolist()]
+    hdr_cells = [str(x).strip() if pd.notna(x) else "" for x in df0.iloc[hdr].tolist()]
+
+    names = []
+    for idx, base in enumerate(hdr_cells):
+        sub_txt = sub[idx] if (sub and idx < len(sub)) else ""
+        if base:
+            nome = f"{base} {sub_txt}".strip() if sub_txt else base
+        else:
+            nome = sub_txt if sub_txt else f"col_{idx}"
+        names.append(nome)
+
+    dfh = ExcelReader.read(caminho_ct, sheet_name=pf, header=None)
+    dfh.columns = names[: len(dfh.columns)] + [
+        f"col_{i}" for i in range(len(names), len(dfh.columns))
+    ]
+    return dfh.iloc[hdr + 2 :].reset_index(drop=True)
+
+
 def normalizar_ct313(caminho_ct):
     """
     Le CT_313 bruta e gera CT_313_NORMALIZADA.xlsx com aba STG_TARIFAS.
@@ -486,21 +530,36 @@ def normalizar_ct313(caminho_ct):
     if not pf:
         return None, 0, 0.0
 
-    # Layout antigo (indices fixos) e layout CT317 real (cabecalho na linha 1)
-    # coexistem. Aqui tentamos primeiro por cabecalho real; se falhar, caimos para
-    # o parser legado por indice.
-    dfh = ExcelReader.read(caminho_ct, sheet_name=pf)
+    # Layout antigo (indices fixos) e layout CT317 real (2 linhas de cabecalho:
+    # linha com N/OPERACOES/PREÇO + sub-linha hh/ha,hm/ha) coexistem. Aqui
+    # detectamos o cabecalho real e mergeamos a sub-linha; se falhar, caimos
+    # para o parser legado por indice.
+    dfh = _ler_ct_preco_final(caminho_ct, pf)
 
     custo_hora_tf = 0.0
     rows_by_name = {}
 
-    def col_by_tokens(df, token_sets):
+    def col_by_tokens(df, token_sets, prefer_numeric=False):
+        """Primeira coluna que casa os tokens. Sets mais específicos primeiro
+        (para cada set, varre todas as colunas — evita que um set solto tipo
+        ['r','h'] capture 'Rendimento hh/ha'). prefer_numeric: entre as
+        candidatas do set, escolhe a que tem valores numéricos."""
         cols = list(df.columns)
-        for c in cols:
-            nc = normalizar_chave(c)
-            for toks in token_sets:
+        for toks in token_sets:
+            found = []
+            for c in cols:
+                nc = normalizar_chave(c)
                 if all(t in nc for t in toks):
+                    if not prefer_numeric:
+                        return c
+                    found.append(c)
+            if not found:
+                continue
+            for c in found:
+                amostra = [v for v in df[c].head(20).tolist() if v is not None and str(v).strip() not in ("", "nan")]
+                if any(_to_float_any(v) for v in amostra):
                     return c
+            return found[0]
         return None
 
     col_nome = col_by_tokens(
@@ -517,7 +576,7 @@ def normalizar_ct313(caminho_ct):
         [["rendimento", "maq"], ["rendimento", "maquina"], ["hm"], ["maquina", "ha"]],
     )
     col_preco = col_by_tokens(dfh, [["preco"], ["tarifa"], ["valor"]])
-    col_custo_h = col_by_tokens(dfh, [["custo", "hora"], ["r", "h"]])
+    col_custo_h = col_by_tokens(dfh, [["custo", "hora"], ["r", "h"]], prefer_numeric=True)
 
     # Parser moderno (CT317 real)
     if col_nome and (col_hh or col_hm):
