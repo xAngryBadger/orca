@@ -74,6 +74,13 @@ from ..monitor import (
     _emitir_monitor_state,
     _monitor_build_rendimentos,
 )
+from ..text_utils import (
+    _norm_atv,
+    _slug_ficheiro_seguro,
+    atividades_por_filtro,
+    normalizar_chave,
+    parse_intervalos_escolha,
+)
 from ..scheduler import (
     _demanda_global_touch,
     _ha_nao_bloqueado_version,
@@ -140,6 +147,10 @@ from ..ui import (
     sub,
     subcabecalho,
 )
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:  # só anotação: scheduler_core importa engine no topo (import ao contrario daria ciclo)
+    from ..scheduler_core import _SchedulerLoopConfig
 
 _HH_EPSILON = 0.01
 DIAS_UTEIS_POR_MES = 22.0
@@ -513,6 +524,12 @@ def _verificar_atividades_sem_tarifa(demandas, cfg, tarifas, strict):
         )
 
 
+def _mostrar_tabela_semanal_lazy(cronograma_base, fazenda, executores):
+    """Wrapper lazy: _mostrar_tabela_semanal vive em scheduler_core (import ao contrario daria ciclo)."""
+    from ..scheduler_core import _mostrar_tabela_semanal
+    return _mostrar_tabela_semanal(cronograma_base, fazenda, executores)
+
+
 def _merge_cronograma_base_e_metricas(hm_only_atividades, demandas, cronograma, fazenda, jornada, cfg, tarifas, dia, mes_ref, ano_ref, prazo_meses, total_hh, executores):
     hm_only_list = sorted(hm_only_atividades, key=str)
     cronograma_mec_base = []
@@ -537,7 +554,7 @@ def _merge_cronograma_base_e_metricas(hm_only_atividades, demandas, cronograma, 
     dias_meta = dias_uteis_no_periodo(mes_ref, ano_ref, prazo_meses)
     meses_simulado = dias_simulado / DIAS_UTEIS_POR_MES if dias_simulado > 0 else 0
 
-    _mostrar_tabela_semanal(cronograma_base, fazenda, executores)
+    _mostrar_tabela_semanal_lazy(cronograma_base, fazenda, executores)
 
     hh_por_turma = defaultdict(float)
     for c in cronograma:
