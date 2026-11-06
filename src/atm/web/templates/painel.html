@@ -3,215 +3,200 @@
 {% block title %}Orca — Painel de Cenários{% endblock %}
 
 {% block content %}
-<!-- Header -->
-<header class="mb-6">
-    <h1 class="text-2xl font-bold text-gray-900">Orca — Painel de Cenários</h1>
-    <p class="text-gray-600 text-sm mt-1">Interface headless para simulação de restauração florestal</p>
-</header>
+<div class="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6 items-start">
 
-<!-- Status da sessão -->
-<div class="card">
-    <h2 class="text-lg font-semibold text-gray-900 mb-3">Status da Sessão</h2>
-    <div class="grid grid-cols-3 gap-2 text-center">
-        <div class="p-3 rounded-lg {% if tem_micro %}bg-green-50{% else %}bg-gray-100{% endif %}">
-            <div class="text-2xl font-bold {% if tem_micro %}text-green-600{% else %}text-gray-400{% endif %}">
-                {% if tem_micro %}✓{% else %}✗{% endif %}
-            </div>
-            <div class="text-xs text-gray-600">Microatual</div>
-            {% if tem_micro %}
-            <div class="text-xs text-gray-500 mt-1">{{ state.micro_rows|length }} talhões</div>
-            {% endif %}
-        </div>
-        <div class="p-3 rounded-lg {% if tem_tarifas %}bg-green-50{% else %}bg-gray-100{% endif %}">
-            <div class="text-2xl font-bold {% if tem_tarifas %}text-green-600{% else %}text-gray-400{% endif %}">
-                {% if tem_tarifas %}✓{% else %}✗{% endif %}
-            </div>
-            <div class="text-xs text-gray-600">Tarifas</div>
-            {% if tem_tarifas %}
-            <div class="text-xs text-gray-500 mt-1">{{ state.tarifas|length }} atividades</div>
-            {% endif %}
-        </div>
-        <div class="p-3 rounded-lg {% if tem_cenarios %}bg-blue-50{% else %}bg-gray-100{% endif %}">
-            <div class="text-2xl font-bold {% if tem_cenarios %}text-blue-600{% else %}text-gray-400{% endif %}">
-                {% if tem_cenarios %}{{ state.cenarios|length }}{% else %}—{% endif %}
-            </div>
-            <div class="text-xs text-gray-600">Cenários</div>
-        </div>
-    </div>
-    
-    {% if erro %}
-    <div class="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-        ⚠ {{ erro }}
-    </div>
-    {% endif %}
-</div>
+    <!-- Coluna esquerda: dados da sessão -->
+    <aside class="space-y-5">
 
-<!-- Ações principais -->
-<div class="card">
-    <h2 class="text-lg font-semibold text-gray-900 mb-3">Carregar Dados</h2>
-    <div class="space-y-3">
-        <form hx-post="/carregar-micro" hx-target="body" hx-swap="outerHTML" class="space-y-2">
-            <input type="hidden" name="session_id" value="{{ session_id }}">
-            <button type="submit" class="btn btn-primary w-full" {% if tem_micro %}disabled{% endif %}>
-                <span class="htmx-indicator mr-2"></span>
-                Carregar microatual.xlsx
-            </button>
-            <p class="text-xs text-gray-500 text-center">data/planilhas/microatual.xlsx</p>
-        </form>
-        
-        <form hx-post="/carregar-tarifas" hx-target="body" hx-swap="outerHTML" class="space-y-2">
-            <input type="hidden" name="session_id" value="{{ session_id }}">
-            <button type="submit" class="btn btn-primary w-full" {% if tem_tarifas %}disabled{% endif %}>
-                <span class="htmx-indicator mr-2"></span>
-                Carregar tarifas (ct317real.xlsx)
-            </button>
-            <p class="text-xs text-gray-500 text-center">data/planilhas/ct317real.xlsx</p>
-        </form>
-        
-        <form hx-post="/validar" hx-target="body" hx-swap="outerHTML">
-            <input type="hidden" name="session_id" value="{{ session_id }}">
-            <button type="submit" class="btn btn-secondary w-full" {% if not tem_micro or not tem_tarifas %}disabled{% endif %}>
-                <span class="htmx-indicator mr-2"></span>
-                Validar dados carregados
-            </button>
-        </form>
-    </div>
-</div>
+        <section class="panel p-5 rise">
+            <h2 class="section-title">Dados da sessão</h2>
 
-<!-- Simulação -->
-<div class="card">
-    <h2 class="text-lg font-semibold text-gray-900 mb-3">Simular Cenários</h2>
-    
-    <div class="space-y-3 mb-4">
-        <div class="grid grid-cols-2 gap-3">
-            <div>
-                <label class="label">Operários base (executores)</label>
-                <input type="number" name="executores_base" value="9" min="1" max="50" class="input-field" id="executores-base-input">
-            </div>
-            <div>
-                <label class="label">Jornada base (horas/dia)</label>
-                <input type="number" name="jornada_base" value="4.6" step="0.1" min="1" max="12" class="input-field" id="jornada-base-input">
-            </div>
-        </div>
-        <div>
-            <label class="label">Jornadas para grade (horas, separadas por vírgula)</label>
-            <input type="text" name="jornadas" value="4.6,6.0,8.0" class="input-field" id="jornadas-input">
-        </div>
-        <div>
-            <label class="label">Equipes para grade (número de operários, separadas por vírgula)</label>
-            <input type="text" name="equipes" value="4,6,9,12" class="input-field" id="equipes-input">
-        </div>
-    </div>
-    
-    <div class="space-y-2">
-        <form hx-post="/simular" hx-target="body" hx-swap="outerHTML" hx-indicator="#simular-loading">
-            <input type="hidden" name="session_id" value="{{ session_id }}">
-            <input type="hidden" name="jornadas" id="jornadas-hidden">
-            <input type="hidden" name="equipes" id="equipes-hidden">
-            <input type="hidden" name="executores_base" id="executores-base-hidden">
-            <input type="hidden" name="jornada_base" id="jornada-base-hidden">
-            <button type="submit" class="btn btn-success w-full" {% if not tem_micro or not tem_tarifas %}disabled{% endif %} id="simular-btn">
-                <span id="simular-loading" class="htmx-indicator mr-2"></span>
-                Simular Grade (Jornada × Equipe)
-            </button>
-        </form>
-        
-        <form hx-post="/comparar-grade" hx-target="body" hx-swap="outerHTML" hx-indicator="#grade-loading">
-            <input type="hidden" name="session_id" value="{{ session_id }}">
-            <button type="submit" class="btn btn-primary w-full" {% if not tem_micro or not tem_tarifas %}disabled{% endif %} id="grade-btn">
-                <span id="grade-loading" class="htmx-indicator mr-2"></span>
-                Comparar Grade Padrão (4.6/6/8h × 4/6/9/12 ops)
-            </button>
-        </form>
-        
-        <form hx-post="/simular-unico" hx-target="body" hx-swap="outerHTML" hx-indicator="#unico-loading" class="space-y-2">
-            <input type="hidden" name="session_id" value="{{ session_id }}">
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="label">Jornada única</label>
-                    <input type="number" name="jornada" value="4.6" step="0.5" min="1" max="12" class="input-field">
+            <div class="space-y-2 mb-5">
+                <div class="flex items-center justify-between bg-bg border border-line rounded-md px-3 py-2.5">
+                    <span class="text-sm">Microatual</span>
+                    {% if tem_micro %}
+                    <span class="badge badge-ok">{{ state.micro_rows|length }} talhões</span>
+                    {% else %}
+                    <span class="badge badge-muted">aguardando</span>
+                    {% endif %}
                 </div>
-                <div>
-                    <label class="label">Equipe única</label>
-                    <input type="number" name="equipe" value="9" min="1" max="50" class="input-field">
+                <div class="flex items-center justify-between bg-bg border border-line rounded-md px-3 py-2.5">
+                    <span class="text-sm">Tarifas</span>
+                    {% if tem_tarifas %}
+                    <span class="badge badge-ok">{{ state.tarifas|length }} atividades</span>
+                    {% else %}
+                    <span class="badge badge-muted">aguardando</span>
+                    {% endif %}
+                </div>
+                <div class="flex items-center justify-between bg-bg border border-line rounded-md px-3 py-2.5">
+                    <span class="text-sm">Cenários</span>
+                    {% if tem_cenarios %}
+                    <span class="badge badge-ok">{{ state.cenarios|length }} rodados</span>
+                    {% else %}
+                    <span class="badge badge-muted">aguardando</span>
+                    {% endif %}
                 </div>
             </div>
-            <button type="submit" class="btn btn-secondary w-full" {% if not tem_micro or not tem_tarifas %}disabled{% endif %} id="unico-btn">
-                <span id="unico-loading" class="htmx-indicator mr-2"></span>
-                Simular Cenário Único
-            </button>
-        </form>
+
+            {% if erro %}
+            <div class="mb-4 px-3 py-2.5 rounded-md border border-err/30 bg-err/10 text-err text-xs font-medium">{{ erro }}</div>
+            {% endif %}
+
+            <div class="space-y-2">
+                <form hx-post="/carregar-micro" hx-target="body" hx-swap="outerHTML">
+                    <input type="hidden" name="session_id" value="{{ session_id }}">
+                    <button type="submit" class="btn btn-ghost w-full" {% if tem_micro %}disabled{% endif %}>
+                        <span class="htmx-indicator"></span>Carregar microatual.xlsx
+                    </button>
+                </form>
+                <p class="text-[0.68rem] text-faint text-center font-mono">data/planilhas/microatual.xlsx</p>
+
+                <form hx-post="/carregar-tarifas" hx-target="body" hx-swap="outerHTML">
+                    <input type="hidden" name="session_id" value="{{ session_id }}">
+                    <button type="submit" class="btn btn-ghost w-full" {% if tem_tarifas %}disabled{% endif %}>
+                        <span class="htmx-indicator"></span>Carregar tarifas (ct317real)
+                    </button>
+                </form>
+                <p class="text-[0.68rem] text-faint text-center font-mono">data/planilhas/ct317real.xlsx</p>
+
+                <form hx-post="/validar" hx-target="body" hx-swap="outerHTML">
+                    <input type="hidden" name="session_id" value="{{ session_id }}">
+                    <button type="submit" class="btn btn-ghost w-full" {% if not tem_micro or not tem_tarifas %}disabled{% endif %}>
+                        <span class="htmx-indicator"></span>Validar dados
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <section class="panel p-4 rise">
+            <form hx-post="/limpar" hx-target="body" hx-swap="outerHTML" hx-confirm="Limpar todos os dados desta sessão?">
+                <input type="hidden" name="session_id" value="{{ session_id }}">
+                <button type="submit" class="btn btn-danger w-full">
+                    <span class="htmx-indicator"></span>Limpar sessão
+                </button>
+            </form>
+        </section>
+
+    </aside>
+
+    <!-- Coluna direita: simulação + últimos cenários -->
+    <div class="space-y-5">
+
+        <section class="panel p-5 rise">
+            <h2 class="section-title">Simular cenários
+                {% if not tem_micro or not tem_tarifas %}
+                <span class="badge badge-muted ml-auto normal-case tracking-normal">carregue os dados primeiro</span>
+                {% endif %}
+            </h2>
+
+            <div class="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                    <label class="label" for="executores-base-input">Operários base</label>
+                    <input type="number" name="executores_base" value="9" min="1" max="50" class="input-field font-mono" id="executores-base-input">
+                </div>
+                <div>
+                    <label class="label" for="jornada-base-input">Jornada base (h/dia)</label>
+                    <input type="number" name="jornada_base" value="4.6" step="0.1" min="1" max="12" class="input-field font-mono" id="jornada-base-input">
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="label" for="jornadas-input">Jornadas da grade (h, vírgula)</label>
+                <input type="text" name="jornadas" value="4.6,6.0,8.0" class="input-field font-mono" id="jornadas-input">
+            </div>
+            <div class="mb-5">
+                <label class="label" for="equipes-input">Equipes da grade (nº operários, vírgula)</label>
+                <input type="text" name="equipes" value="4,6,9,12" class="input-field font-mono" id="equipes-input">
+            </div>
+
+            <div class="space-y-2">
+                <form hx-post="/simular" hx-target="body" hx-swap="outerHTML">
+                    <input type="hidden" name="session_id" value="{{ session_id }}">
+                    <input type="hidden" name="jornadas" id="jornadas-hidden" value="4.6,6.0,8.0">
+                    <input type="hidden" name="equipes" id="equipes-hidden" value="4,6,9,12">
+                    <input type="hidden" name="executores_base" id="executores-base-hidden" value="9">
+                    <input type="hidden" name="jornada_base" id="jornada-base-hidden" value="4.6">
+                    <button type="submit" class="btn btn-primary w-full" {% if not tem_micro or not tem_tarifas %}disabled{% endif %}>
+                        <span class="htmx-indicator"></span>Simular grade (jornada × equipe)
+                    </button>
+                </form>
+
+                <form hx-post="/comparar-grade" hx-target="body" hx-swap="outerHTML">
+                    <input type="hidden" name="session_id" value="{{ session_id }}">
+                    <button type="submit" class="btn btn-ghost w-full" {% if not tem_micro or not tem_tarifas %}disabled{% endif %}>
+                        <span class="htmx-indicator"></span>Comparar grade padrão (4.6/6/8h × 4/6/9/12)
+                    </button>
+                </form>
+
+                <form hx-post="/simular-unico" hx-target="body" hx-swap="outerHTML">
+                    <input type="hidden" name="session_id" value="{{ session_id }}">
+                    <div class="grid grid-cols-2 gap-3 mb-2">
+                        <div>
+                            <label class="label">Jornada única</label>
+                            <input type="number" name="jornada" value="4.6" step="0.5" min="1" max="12" class="input-field font-mono">
+                        </div>
+                        <div>
+                            <label class="label">Equipe única</label>
+                            <input type="number" name="equipe" value="9" min="1" max="50" class="input-field font-mono">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-ghost w-full" {% if not tem_micro or not tem_tarifas %}disabled{% endif %}>
+                        <span class="htmx-indicator"></span>Simular cenário único
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        {% if tem_cenarios %}
+        <section class="panel p-5 rise">
+            <h2 class="section-title">Últimos cenários
+                <span class="badge badge-muted ml-auto normal-case tracking-normal">{{ state.cenarios|length }} no total</span>
+            </h2>
+
+            <div class="overflow-x-auto border border-line rounded-md">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Equipe</th><th>Jornada</th><th>Dias</th><th>Meses</th><th>Uso%</th><th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in state.cenarios[-5:] %}
+                        <tr>
+                            <td class="font-mono">{{ c.executores }}</td>
+                            <td class="font-mono">{{ c.jornada }}h</td>
+                            <td class="font-mono">{{ c.dias_simulados }}</td>
+                            <td class="font-mono">{{ c.meses_simulados }}</td>
+                            <td class="font-mono">{{ c.uso_capacidade_pct }}%</td>
+                            <td>
+                                <span class="badge {% if c.aprovacao == 'COMPLETO' %}badge-ok{% else %}badge-err{% endif %}">{{ c.aprovacao }}</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-4 text-center">
+                <a href="/resultado?session_id={{ session_id }}" class="btn btn-ghost">Resultados completos</a>
+            </div>
+        </section>
+        {% endif %}
+
     </div>
 </div>
-
-<!-- Resultados rápidos -->
-{% if tem_cenarios %}
-<div class="card">
-    <h2 class="text-lg font-semibold text-gray-900 mb-3">Últimos Cenários ({{ state.cenarios|length }})</h2>
-    <div class="table-container">
-        <table>
-            <thead>
-                <tr>
-                    <th>Equipe</th>
-                    <th>Jornada</th>
-                    <th>Dias</th>
-                    <th>Meses</th>
-                    <th>Uso%</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for c in state.cenarios[-5:] %}
-                <tr>
-                    <td>{{ c.executores }}</td>
-                    <td>{{ c.jornada }}h</td>
-                    <td>{{ c.dias_simulados }}</td>
-                    <td>{{ c.meses_simulados }}</td>
-                    <td>{{ c.uso_capacidade_pct }}%</td>
-                    <td>
-                        <span class="badge {% if c.aprovacao == 'COMPLETO' %}badge-success{% else %}badge-error{% endif %}">
-                            {{ c.aprovacao }}
-                        </span>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    <div class="mt-3 text-center">
-        <a href="/resultado?session_id={{ session_id }}" class="btn btn-primary">
-            Ver Painel Completo de Resultados →
-        </a>
-    </div>
-</div>
-{% endif %}
-
-<!-- Limpar sessão -->
-<div class="card">
-    <form hx-post="/limpar" hx-target="body" hx-swap="outerHTML" hx-confirm="Tem certeza? Isso limpará todos os dados da sessão.">
-        <input type="hidden" name="session_id" value="{{ session_id }}">
-        <button type="submit" class="btn btn-danger w-full">
-            Limpar Sessão e Recomeçar
-        </button>
-    </form>
-</div>
-
 {% endblock %}
 
 {% block scripts %}
 <script>
-    // Sincroniza campos hidden com inputs visíveis
-    document.getElementById('jornadas-input')?.addEventListener('input', function() {
-        document.getElementById('jornadas-hidden').value = this.value;
-    });
-    document.getElementById('equipes-input')?.addEventListener('input', function() {
-        document.getElementById('equipes-hidden').value = this.value;
-    });
-    document.getElementById('executores-base-input')?.addEventListener('input', function() {
-        document.getElementById('executores-base-hidden').value = this.value;
-    });
-    document.getElementById('jornada-base-input')?.addEventListener('input', function() {
-        document.getElementById('jornada-base-hidden').value = this.value;
-    });
+    const sync = (src, dst, initial) => {
+        const s = document.getElementById(src), d = document.getElementById(dst);
+        if (!s || !d) return;
+        d.value = s.value || initial;
+        s.addEventListener('input', () => { d.value = s.value; });
+    };
+    sync('jornadas-input', 'jornadas-hidden', '4.6,6.0,8.0');
+    sync('equipes-input', 'equipes-hidden', '4,6,9,12');
+    sync('executores-base-input', 'executores-base-hidden', '9');
+    sync('jornada-base-input', 'jornada-base-hidden', '4.6');
 </script>
 {% endblock %}

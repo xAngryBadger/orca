@@ -1,138 +1,103 @@
 {% extends "base.html" %}
 
-{% block title %}Orca — Resultados dos Cenários{% endblock %}
+{% block title %}Orca — Resultados{% endblock %}
 
 {% block content %}
-<!-- Header -->
-<header class="mb-6">
-    <h1 class="text-2xl font-bold text-gray-900">Resultados da Simulação</h1>
-    <p class="text-gray-600 text-sm mt-1">{{ cenarios|length }} cenários executados pelo scheduler real</p>
-    <a href="/?session_id={{ session_id }}" class="inline-block mt-3 text-sm text-blue-600 hover:underline">
-        ← Voltar ao Painel
-    </a>
-</header>
-
-{% if erro %}
-<div class="card bg-red-50 border border-red-200">
-    <div class="text-red-700 text-sm">
-        ⚠ {{ erro }}
+<div class="flex items-center gap-3 mb-6 rise">
+    <a href="/?session_id={{ session_id }}" class="btn btn-ghost">← Voltar ao painel</a>
+    <div>
+        <h1 class="font-semibold text-xl tracking-tight">Resultados da simulação</h1>
+        <p class="text-muted text-xs mt-0.5 font-mono">{{ cenarios|length }} cenários executados</p>
     </div>
 </div>
+
+{% if erro %}
+<div class="mb-5 px-4 py-3 rounded-md border border-err/30 bg-err/10 text-err text-sm font-medium rise">{{ erro }}</div>
 {% endif %}
 
 {% if not cenarios %}
-<div class="card text-center py-8">
-    <div class="text-4xl mb-2">📊</div>
-    <h2 class="text-lg font-medium text-gray-900 mb-1">Nenhum cenário simulado</h2>
-    <p class="text-gray-500 text-sm mb-4">Carregue micro e tarifas, depois execute uma simulação.</p>
-    <a href="/?session_id={{ session_id }}" class="btn btn-primary">Voltar ao Painel</a>
+<div class="panel p-10 text-center rise">
+    <svg class="mx-auto mb-4" width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" stroke="#888888" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    <h2 class="font-semibold text-base mb-1">Nenhum cenário simulado</h2>
+    <p class="text-muted text-sm mb-5">Carregue micro e tarifas, depois rode uma simulação.</p>
+    <a href="/?session_id={{ session_id }}" class="btn btn-primary">Voltar ao painel</a>
 </div>
 {% else %}
 
-<!-- Resumo estatístico -->
-<div class="card">
-    <h2 class="text-lg font-semibold text-gray-900 mb-3">Resumo</h2>
+<!-- Resumo -->
+<section class="panel p-5 mb-5 rise">
+    <h2 class="section-title">Resumo</h2>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div class="p-3 bg-blue-50 rounded-lg">
-            <div class="text-2xl font-bold text-blue-600">{{ cenarios|length }}</div>
-            <div class="text-xs text-blue-700">Cenários</div>
+        <div class="bg-bg border border-line rounded-md p-3.5">
+            <div class="text-xl font-semibold font-mono text-txt">{{ cenarios|length }}</div>
+            <div class="text-[0.66rem] text-faint uppercase tracking-wider mt-1">cenários</div>
         </div>
-        <div class="p-3 bg-green-50 rounded-lg">
-            <div class="text-2xl font-bold text-green-600">
-                {{ cenarios|selectattr('aprovacao', 'equalto', 'COMPLETO')|list|length }}
-            </div>
-            <div class="text-xs text-green-700">Completos</div>
+        <div class="bg-bg border border-line rounded-md p-3.5">
+            <div class="text-xl font-semibold font-mono text-ok">{{ cenarios|selectattr('aprovacao', 'equalto', 'COMPLETO')|list|length }}</div>
+            <div class="text-[0.66rem] text-faint uppercase tracking-wider mt-1">completos</div>
         </div>
-        <div class="p-3 bg-yellow-50 rounded-lg">
-            <div class="text-2xl font-bold text-yellow-600">
-                {{ cenarios|selectattr('aprovacao', 'equalto', 'INCOMPLETO')|list|length }}
-            </div>
-            <div class="text-xs text-yellow-700">Incompletos</div>
+        <div class="bg-bg border border-line rounded-md p-3.5">
+            <div class="text-xl font-semibold font-mono text-err">{{ cenarios|selectattr('aprovacao', 'equalto', 'INCOMPLETO')|list|length }}</div>
+            <div class="text-[0.66rem] text-faint uppercase tracking-wider mt-1">incompletos</div>
         </div>
-        <div class="p-3 bg-purple-50 rounded-lg">
-            <div class="text-2xl font-bold text-purple-600">
-                {{ (cenarios|map(attribute='dias_simulados')|min) }}–{{ (cenarios|map(attribute='dias_simulados')|max) }}
-            </div>
-            <div class="text-xs text-purple-700">Dias (min–max)</div>
+        <div class="bg-bg border border-line rounded-md p-3.5">
+            <div class="text-xl font-semibold font-mono text-txt">{{ (cenarios|map(attribute='dias_simulados')|min) }}–{{ (cenarios|map(attribute='dias_simulados')|max) }}</div>
+            <div class="text-[0.66rem] text-faint uppercase tracking-wider mt-1">dias (min–max)</div>
         </div>
     </div>
-</div>
+</section>
 
-<!-- Tabela de cenários -->
-<div class="card">
-    <h2 class="text-lg font-semibold text-gray-900 mb-3">Grade de Cenários (Jornada × Equipe)</h2>
-    
-    <div class="table-container">
+<!-- Grade completa -->
+<section class="panel p-5 mb-5 rise">
+    <h2 class="section-title">Grade completa · jornada × equipe</h2>
+    <div class="overflow-x-auto border border-line rounded-md">
         <table>
             <thead>
                 <tr>
-                    <th>Equipe</th>
-                    <th>Jornada</th>
-                    <th>Dias</th>
-                    <th>Meses</th>
-                    <th>HH Total</th>
-                    <th>HH Pendente</th>
-                    <th>Cap. Dia</th>
-                    <th>Uso%</th>
-                    <th>Linhas</th>
-                    <th>Status</th>
+                    <th>Equipe</th><th>Jornada</th><th>Dias</th><th>Meses</th><th>HH total</th><th>HH pendente</th><th>Cap./dia</th><th>Uso%</th><th>Linhas</th><th>Status</th>
                 </tr>
             </thead>
             <tbody>
                 {% for c in cenarios %}
-                <tr class="{% if c.aprovacao == 'INCOMPLETO' %}bg-red-50{% endif %}">
-                    <td class="font-medium">{{ c.executores }}</td>
-                    <td>{{ c.jornada }}h</td>
-                    <td class="font-medium">{{ c.dias_simulados }}</td>
-                    <td>{{ c.meses_simulados }}</td>
-                    <td>{{ c.hh_total }}</td>
-                    <td class="{% if c.hh_pendente > 0 %}text-red-600{% else %}text-green-600{% endif %}">{{ c.hh_pendente }}</td>
-                    <td>{{ c.capacidade_dia_hh }}</td>
-                    <td class="font-medium">{{ c.uso_capacidade_pct }}%</td>
-                    <td>{{ c.linhas_cronograma }}</td>
-                    <td>
-                        <span class="badge {% if c.aprovacao == 'COMPLETO' %}badge-success{% else %}badge-error{% endif %}">
-                            {{ c.aprovacao }}
-                        </span>
-                    </td>
+                <tr>
+                    <td class="font-mono">{{ c.executores }}</td>
+                    <td class="font-mono">{{ c.jornada }}h</td>
+                    <td class="font-mono">{{ c.dias_simulados }}</td>
+                    <td class="font-mono">{{ c.meses_simulados }}</td>
+                    <td class="font-mono">{{ c.hh_total }}</td>
+                    <td class="font-mono {% if c.hh_pendente > 0 %}text-err{% else %}text-ok{% endif %}">{{ c.hh_pendente }}</td>
+                    <td class="font-mono">{{ c.capacidade_dia_hh }}</td>
+                    <td class="font-mono">{{ c.uso_capacidade_pct }}%</td>
+                    <td class="font-mono">{{ c.linhas_cronograma }}</td>
+                    <td><span class="badge {% if c.aprovacao == 'COMPLETO' %}badge-ok{% else %}badge-err{% endif %}">{{ c.aprovacao }}</span></td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-</div>
+</section>
 
-<!-- Análise por jornada -->
-<div class="card">
-    <h2 class="text-lg font-semibold text-gray-900 mb-3">Análise por Jornada</h2>
+<!-- Por jornada -->
+<section class="panel p-5 mb-5 rise">
+    <h2 class="section-title">Por jornada</h2>
     {% set jornadas = cenarios|map(attribute='jornada')|unique|list|sort %}
     {% for j in jornadas %}
     {% set cen_j = cenarios|selectattr('jornada', 'equalto', j)|list %}
-    <div class="mb-4 {% if not loop.last %}pb-4 border-b border-gray-100{% endif %}">
-        <h3 class="font-medium text-gray-800 mb-2">Jornada {{ j }}h — {{ cen_j|length }} configurações</h3>
-        <div class="table-container">
-            <table class="text-xs">
-                <thead>
-                    <tr>
-                        <th>Equipe</th>
-                        <th>Dias</th>
-                        <th>Meses</th>
-                        <th>Uso%</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
+    <div class="mb-5 last:mb-0">
+        <h3 class="text-sm font-semibold mb-2">Jornada {{ j }}h <span class="text-muted font-normal font-mono text-xs">{{ cen_j|length }} configs</span></h3>
+        <div class="overflow-x-auto border border-line rounded-md">
+            <table>
+                <thead><tr><th>Equipe</th><th>Dias</th><th>Meses</th><th>Uso%</th><th>Status</th></tr></thead>
                 <tbody>
                     {% for c in cen_j|sort(attribute='executores') %}
                     <tr>
-                        <td>{{ c.executores }}</td>
-                        <td>{{ c.dias_simulados }}</td>
-                        <td>{{ c.meses_simulados }}</td>
-                        <td>{{ c.uso_capacidade_pct }}%</td>
-                        <td>
-                            <span class="badge {% if c.aprovacao == 'COMPLETO' %}badge-success{% else %}badge-error{% endif %}">
-                                {{ c.aprovacao }}
-                            </span>
-                        </td>
+                        <td class="font-mono">{{ c.executores }}</td>
+                        <td class="font-mono">{{ c.dias_simulados }}</td>
+                        <td class="font-mono">{{ c.meses_simulados }}</td>
+                        <td class="font-mono">{{ c.uso_capacidade_pct }}%</td>
+                        <td><span class="badge {% if c.aprovacao == 'COMPLETO' %}badge-ok{% else %}badge-err{% endif %}">{{ c.aprovacao }}</span></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -140,39 +105,27 @@
         </div>
     </div>
     {% endfor %}
-</div>
+</section>
 
-<!-- Análise por equipe -->
-<div class="card">
-    <h2 class="text-lg font-semibold text-gray-900 mb-3">Análise por Equipe</h2>
+<!-- Por equipe -->
+<section class="panel p-5 mb-5 rise">
+    <h2 class="section-title">Por equipe</h2>
     {% set equipes = cenarios|map(attribute='executores')|unique|list|sort %}
     {% for e in equipes %}
     {% set cen_e = cenarios|selectattr('executores', 'equalto', e)|list %}
-    <div class="mb-4 {% if not loop.last %}pb-4 border-b border-gray-100{% endif %}">
-        <h3 class="font-medium text-gray-800 mb-2">Equipe {{ e }} operários — {{ cen_e|length }} configurações</h3>
-        <div class="table-container">
-            <table class="text-xs">
-                <thead>
-                    <tr>
-                        <th>Jornada</th>
-                        <th>Dias</th>
-                        <th>Meses</th>
-                        <th>Uso%</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
+    <div class="mb-5 last:mb-0">
+        <h3 class="text-sm font-semibold mb-2">Equipe {{ e }} operários <span class="text-muted font-normal font-mono text-xs">{{ cen_e|length }} configs</span></h3>
+        <div class="overflow-x-auto border border-line rounded-md">
+            <table>
+                <thead><tr><th>Jornada</th><th>Dias</th><th>Meses</th><th>Uso%</th><th>Status</th></tr></thead>
                 <tbody>
                     {% for c in cen_e|sort(attribute='jornada') %}
                     <tr>
-                        <td>{{ c.jornada }}h</td>
-                        <td>{{ c.dias_simulados }}</td>
-                        <td>{{ c.meses_simulados }}</td>
-                        <td>{{ c.uso_capacidade_pct }}%</td>
-                        <td>
-                            <span class="badge {% if c.aprovacao == 'COMPLETO' %}badge-success{% else %}badge-error{% endif %}">
-                                {{ c.aprovacao }}
-                            </span>
-                        </td>
+                        <td class="font-mono">{{ c.jornada }}h</td>
+                        <td class="font-mono">{{ c.dias_simulados }}</td>
+                        <td class="font-mono">{{ c.meses_simulados }}</td>
+                        <td class="font-mono">{{ c.uso_capacidade_pct }}%</td>
+                        <td><span class="badge {% if c.aprovacao == 'COMPLETO' %}badge-ok{% else %}badge-err{% endif %}">{{ c.aprovacao }}</span></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -180,14 +133,9 @@
         </div>
     </div>
     {% endfor %}
-</div>
+</section>
 
-<!-- Rodapé -->
-<div class="card text-center text-sm text-gray-500">
-    <p>Dados gerados pelo <strong>scheduler real</strong> (comparativo_real.simular_cenarios_reais)</p>
-    <p class="mt-1">Orca v7 — Restauração Florestal</p>
-</div>
+<p class="text-center text-xs text-faint mb-6">Dados gerados pelo <span class="font-mono text-muted">scheduler real</span> · Orca v7</p>
 
 {% endif %}
-
 {% endblock %}

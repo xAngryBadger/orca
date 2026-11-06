@@ -33,8 +33,18 @@ def _unique_filter(seq):
             result.append(item)
     return result
 
-def _selectattr_filter(seq, attr, value=None):
-    """Filtra objetos ou dicts por atributo/chave."""
+def _selectattr_filter(seq, attr, *args):
+    """Filtra objetos ou dicts por atributo/chave. Compatível com selectattr do Jinja2:
+    selectattr(attr) = truthy, selectattr(attr, 'equalto', valor) = igualdade."""
+    if len(args) == 2:
+        test_name, value = args
+        if test_name != "equalto":
+            raise ValueError(f"teste não suportado: {test_name}")
+        pred = lambda v: v == value
+    elif len(args) == 0:
+        pred = lambda v: bool(v)
+    else:
+        raise ValueError("uso: selectattr(attr) ou selectattr(attr, 'equalto', valor)")
     result = []
     for item in seq:
         # Tenta como dict primeiro, depois como objeto
@@ -42,11 +52,7 @@ def _selectattr_filter(seq, attr, value=None):
             item_value = item.get(attr)
         else:
             item_value = getattr(item, attr, None)
-        
-        if value is None:
-            if item_value:
-                result.append(item)
-        elif item_value == value:
+        if pred(item_value):
             result.append(item)
     return result
 
@@ -75,8 +81,7 @@ def index(request: Request):
     session_id = _get_session_id(request)
     state = obter_estado(session_id)
     
-    response = templates.TemplateResponse(
-        "painel.html",
+    response = templates.TemplateResponse(request, "painel.html",
         {
             "request": request,
             "session_id": session_id,
@@ -95,8 +100,7 @@ def post_carregar_micro(request: Request, session_id: str = Form(...)):
     """Carrega microatual.xlsx."""
     state = carregar_micro(session_id)
     
-    response = templates.TemplateResponse(
-        "painel.html",
+    response = templates.TemplateResponse(request, "painel.html",
         {
             "request": request,
             "session_id": session_id,
@@ -115,8 +119,7 @@ def post_carregar_tarifas(request: Request, session_id: str = Form(...)):
     """Carrega ct317real.xlsx (tarifas)."""
     state = carregar_tarifas(session_id)
     
-    response = templates.TemplateResponse(
-        "painel.html",
+    response = templates.TemplateResponse(request, "painel.html",
         {
             "request": request,
             "session_id": session_id,
@@ -135,8 +138,7 @@ def post_validar(request: Request, session_id: str = Form(...)):
     """Valida se micro e tarifas estão carregados."""
     state = validar_dados(session_id)
     
-    response = templates.TemplateResponse(
-        "painel.html",
+    response = templates.TemplateResponse(request, "painel.html",
         {
             "request": request,
             "session_id": session_id,
@@ -166,8 +168,7 @@ def post_simular(
     except ValueError:
         state = obter_estado(session_id)
         state.erro = "Jornadas/equipes inválidos. Use números separados por vírgula."
-        response = templates.TemplateResponse(
-            "painel.html",
+        response = templates.TemplateResponse(request, "painel.html",
             {
                 "request": request,
                 "session_id": session_id,
@@ -182,8 +183,7 @@ def post_simular(
     
     state = simular(session_id, jornadas_l, equipes_l, executores_base, jornada_base)
     
-    response = templates.TemplateResponse(
-        "painel.html",
+    response = templates.TemplateResponse(request, "painel.html",
         {
             "request": request,
             "session_id": session_id,
@@ -207,8 +207,7 @@ def post_simular_unico(
     """Roda UM cenário específico."""
     state = simular_unico(session_id, jornada, equipe)
     
-    response = templates.TemplateResponse(
-        "painel.html",
+    response = templates.TemplateResponse(request, "painel.html",
         {
             "request": request,
             "session_id": session_id,
@@ -230,8 +229,7 @@ def post_comparar_grade(
     """Atalho: roda grade padrão (jornadas 4.6/6/8 × equipes 4/6/9/12)."""
     state = simular(session_id, [4.6, 6.0, 8.0], [4, 6, 9, 12], executores_base=9, jornada_base=4.6)
     
-    response = templates.TemplateResponse(
-        "painel.html",
+    response = templates.TemplateResponse(request, "painel.html",
         {
             "request": request,
             "session_id": session_id,
@@ -251,8 +249,7 @@ def get_resultado(request: Request, session_id: Optional[str] = None):
     sid = session_id or _get_session_id(request)
     state = obter_estado(sid)
     
-    response = templates.TemplateResponse(
-        "resultado.html",
+    response = templates.TemplateResponse(request, "resultado.html",
         {
             "request": request,
             "session_id": sid,
@@ -268,8 +265,7 @@ def post_limpar(request: Request, session_id: str = Form(...)):
     """Limpa sessão e volta ao painel inicial."""
     limpar_sessao(session_id)
     
-    response = templates.TemplateResponse(
-        "painel.html",
+    response = templates.TemplateResponse(request, "painel.html",
         {
             "request": request,
             "session_id": session_id,
