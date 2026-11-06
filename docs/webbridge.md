@@ -27,7 +27,7 @@ Documenta o contrato de integração entre o painel web (`src/atm/web/`) e o mot
 | POST | `/validar` | `painel.html` | `validar_dados` |
 | POST | `/simular` | `painel.html` | `simular` |
 | POST | `/simular-unico` | `painel.html` | `simular_unico` |
-| POST | `/comparar-grade` | `painel.html` | `simular` (grade padrão) |
+| POST | `/comparar-grade` | `painel.html` | `simular` com `GRADE_PADRAO_JORNADAS` × `GRADE_PADRAO_EQUIPES` |
 | GET | `/resultado` | `resultado.html` | `obter_estado` |
 | POST | `/limpar` | `painel.html` | `limpar_sessao` |
 
@@ -73,8 +73,8 @@ Carrega tarifas via `carregar_stg_tarifas(caminho)`. Caminho padrão por `_encon
 ### `validar_dados(session_id) -> SessionState`
 Valida se `micro_rows` e `tarifas` estão preenchidos. Define `state.erro` se faltar algum.
 
-### `simular(session_id, jornadas, equipes, executores_base=9, jornada_base=4.6) -> SessionState`
-Constrói demanda de `_construir_demanda(micro_rows, tarifas)` (chave `(talhao, atividade)`, valor HH calculado por `rendimento_hm` ou `rendimento_hh`). Roda `simular_cenarios_reais(demanda, executores_base, jornada_base, jornadas=..., equipes=...)` em `_run_in_thread` (ThreadPoolExecutor, `max_workers=2`). Guarda em `state.cenarios`.
+### `simular(session_id, jornadas, equipes, executores_base=_EXECUTORES_DEFAULT, jornada_base=_JORNADA_DEFAULT) -> SessionState`
+Defaults derivados do scheduler: `executores_base=9`, `jornada_base=4.6` (não vêm de `config.json`). Constrói demanda de `_construir_demanda(micro_rows, tarifas)` (chave `(talhao, atividade)`, valor HH calculado por `rendimento_hm` ou `rendimento_hh`). Roda `simular_cenarios_reais(demanda, executores_base, jornada_base, jornadas=..., equipes=...)` em `_run_in_thread` (ThreadPoolExecutor, `max_workers=2`). Guarda em `state.cenarios`.
 
 ### `simular_unico(session_id, jornada, equipe) -> SessionState`
 Constrói demanda e roda `simular_cenario_real(demanda, executores=equipe, jornada=jornada)` em thread pool. Guarda `[cenario]` em `state.cenarios`.
@@ -86,8 +86,25 @@ Retorna (ou cria) o `SessionState` da sessão.
 Remove a sessão do dicionário `_sessions`.
 
 ### Defaults (não vêm de config.json)
-- `_JORNADA_DEFAULT = _JORNADA_DEFAULT_H` (4.6h)
-- `_EXECUTORES_DEFAULT = 9`
+
+Constantes de grade em `bridge.py` — fonte única: `app.py` e os templates leem daqui, nada hardcoded no HTML:
+
+- `GRADE_PADRAO_JORNADAS = [4.6, 6.0, 8.0]` — jornadas (h/dia) da grade padrão
+- `GRADE_PADRAO_EQUIPES = [4, 6, 9, 12]` — equipes (nº de operários) da grade padrão
+- `_JORNADA_DEFAULT = _JORNADA_DEFAULT_H` (4.6h) e `_EXECUTORES_DEFAULT = 9` — base do modo detalhado
+
+`defaults_simulacao()` devolve o que o painel exibe e usa como default dos forms:
+
+| Campo | Valor | Derivado de |
+|-------|-------|-------------|
+| `jornadas` | `"4.6,6.0,8.0"` | `GRADE_PADRAO_JORNADAS` |
+| `equipes` | `"4,6,9,12"` | `GRADE_PADRAO_EQUIPES` |
+| `executores_base` | `9` | `_EXECUTORES_DEFAULT` |
+| `jornada_base` | `4.6` | `_JORNADA_DEFAULT` |
+
+`app.py` guarda uma cópia em `_DEFAULTS = defaults_simulacao()`, usada como default dos `Form(...)` de `/simular` e `/simular-unico`.
+
+**`/comparar-grade`** (atalho "Simular grade padrão"): chama `simular(session_id, GRADE_PADRAO_JORNADAS, GRADE_PADRAO_EQUIPES, executores_base=_DEFAULTS["executores_base"], jornada_base=_DEFAULTS["jornada_base"])` — 3 jornadas × 4 equipes = 12 cenários, sem o usuário digitar nada.
 
 ---
 
@@ -117,7 +134,7 @@ Não há códigos numéricos; erros são strings descritivas em PT-BR.
 2. Usuário clica "Carregar microatual.xlsx" → `POST /carregar-micro` com `session_id=a3f7b1c2`. Bridge carrega `data/planilhas/microatual.xlsx`, preenche `state.micro_rows`. Re-renderiza `painel.html` com `tem_micro=True`.
 3. Usuário clica "Carregar tarifas (ct317real.xlsx)" → `POST /carregar-tarifas`. Bridge carrega `STG_TARIFAS.xlsx`, preenche `state.tarifas`. Re-renderiza com `tem_tarifas=True`.
 4. Usuário clica "Validar dados carregados" → `POST /validar`. Se ambos preenchidos, `state.erro = None`.
-5. Usuário preenche jornadas (`4.6,6.0,8.0`) e equipes (`4,6,9,12`), clica "Simular Grade" → `POST /simular`. Bridge constrói demanda, chama `simular_cenarios_reais` no thread pool. `state.cenarios` preenchido (3 jornadas × 4 equipes = 12 cenários). Re-renderiza `painel.html` com tabela de últimos cenários.
+5. Atalho de um clique: "Simular grade padrão" → `POST /comparar-grade`, que chama `simular` com `GRADE_PADRAO_JORNADAS` × `GRADE_PADRAO_EQUIPES` (4.6,6.0,8.0h × 4,6,9,12 = 12 cenários). Modo detalhado (toggle "Personalizar parâmetros"): o usuário preenche jornadas (ex: `4.6,6.0,8.0`) e equipes (ex: `4,6,9,12`) e clica "Simular grade personalizada" → `POST /simular`. Bridge constrói demanda, chama `simular_cenarios_reais` no thread pool. `state.cenarios` preenchido. Re-renderiza `painel.html` com tabela de últimos cenários.
 6. Usuário clica "Ver Painel Completo de Resultados →" → `GET /resultado?session_id=a3f7b1c2`. Renderiza `resultado.html` com a grade completa (Equipe, Jornada, Dias, Meses, HH Total, HH Pendente, Cap. Dia, Uso%, Linhas, Status) + análises por jornada e por equipe.
 7. Usuário clica "Limpar Sessão" → `POST /limpar`. `limpar_sessao(a3f7b1c2)` remove do dicionário `_sessions`. Volta ao painel vazio.
 

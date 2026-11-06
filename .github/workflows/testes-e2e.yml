@@ -2,54 +2,242 @@ name: Testes E2E
 
 on:
   push:
-    branches: [ refactor/v8, main, master ]
+    branches: [rework, main]
   pull_request:
-    branches: [ refactor/v8, main, master ]
+    branches: [rework, main]
 
 jobs:
-  testes:
+  unitarios:
     runs-on: ubuntu-latest
-    
+    env:
+      PYTHONIOENCODING: utf-8
     steps:
-    - name: Checkout do código
-      uses: actions/checkout@v3
-    
-    - name: Configurar Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-    
-    - name: Instalar dependências
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pandas openpyxl pytest
-    
-    - name: Teste crítico - Cascata GLOBAL
-      run: |
-        echo "Executando teste de cascata (crítico)..."
-        python3 -m unittest tests.test_cascata_global -v
-    
-    - name: Testes E2E permanentes
-      run: |
-        echo "Executando todos os testes E2E..."
-        python3 tests/run_all_e2e.py
-    
-    - name: Upload de resultados (se falhar)
-      if: failure()
-      uses: actions/upload-artifact@v3
-      with:
-        name: resultados-testes-falha
-        path: |
-          data/dossiês/*.xlsx
-          tests/*.log
-        retention-days: 7
-    
-    - name: Upload de resultados (sempre)
-      if: always()
-      uses: actions/upload-artifact@v3
-      with:
-        name: resultados-testes
-        path: |
-          tests/*.log
-        retention-days: 30
+      - name: Checkout do codigo
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          # requirements.txt nao existe — instala direto.
+          # rich/colorama: dependencias duras do motor (orca/scheduler.py e orca/ui.py).
+          pip install fastapi "uvicorn[standard]" jinja2 python-multipart pandas openpyxl rich colorama
+
+      - name: Suite unitaria canonica (E2E com planilhas reais NAO roda no CI)
+        run: |
+          python -m unittest tests.test_orca_helpers tests.test_orca_strict tests.test_orca_scheduler tests.test_comparativo_real tests.test_schemas tests.test_tarifas_p0 tests.test_io_p0 tests.test_property_schemas tests.test_property_cascade tests.test_mcp_contract -v
+
+      - name: Upload de logs (se falhar)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-unitarios
+          path: tests/*.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do codigo
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          # requirements.txt nao existe — instala direto.
+          # rich/colorama: dependencias duras do motor (orca/scheduler.py e orca/ui.py).
+          pip install fastapi "uvicorn[standard]" jinja2 python-multipart pandas openpyxl rich colorama
+
+      - name: Smoke do painel web (headless, sem servidor)
+        run: |
+          cat > /tmp/web_smoke.py <<'PYEOF'
+          """Smoke do painel web (headless): importa o app FastAPI e renderiza os templates
+          com estado mock — sem subir servidor, sem planilhas reais.
+
+          Uso: python web_smoke.py (rodar da raiz do repo, ou com GITHUB_WORKSPACE definido)
+          Exit 1 se qualquer checagem falhar.
+          """
+
+          import os
+          import sys
+
+          # -- raiz do repo (GH Actions: GITHUB_WORKSPACE; local: cwd ou walk-up) -------
+          root = os.environ.get("GITHUB_WORKSPACE") or os.getcwd()
+          if not os.path.isfile(os.path.join(root, "src", "atm", "web", "app.py")):
+              cur = os.getcwd()
+              while True:
+                  if os.path.isfile(os.path.join(cur, "src", "atm", "web", "app.py")):
+                      root = cur
+                      break
+                  pai = os.path.dirname(cur)
+                  if pai == cur:
+                      sys.exit("FALHA: raiz do repo nao encontrada (procurei src/atm/web/app.py)")
+                  cur = pai
+          os.chdir(root)
+          if root not in sys.path:
+              sys.path.insert(0, root)
+
+          print("[smoke] repo root: " + root)
+
+          from src.atm.web.app import app, templates  # noqa: E402
+          from src.atm.web import bridge  # noqa: E402
+
+          falhas = []
+
+
+          def check(cond, msg):
+              print(("  OK    " if cond else "  FALHA ") + msg)
+              if not cond:
+                  falhas.append(msg)
+
+
+          # -- 1. contrato de rotas (7 POST alvos de hx-post + GET /resultado) --------
+          metodos = {}
+          for r in app.routes:
+              for m in sorted(getattr(r, "methods", None) or []):
+                  metodos.setdefault(m, set()).add(r.path)
+
+          POST_ALVOS = [
+              "/carregar-micro",
+              "/carregar-tarifas",
+              "/validar",
+              "/simular",
+              "/comparar-grade",
+              "/simular-unico",
+              "/limpar",
+          ]
+          for p in POST_ALVOS:
+              check(p in metodos.get("POST", set()), "rota POST " + p + " registrada no app")
+          check("/resultado" in metodos.get("GET", set()), "rota GET /resultado registrada no app")
+
+          # -- 2. defaults do bridge --------------------------------------------------
+          d = bridge.defaults_simulacao()
+          check(
+              set(d) == {"jornadas", "equipes", "executores_base", "jornada_base"},
+              "defaults_simulacao() expoe jornadas/equipes/executores_base/jornada_base",
+          )
+          check(
+              d["jornadas"] == ",".join(str(j) for j in bridge.GRADE_PADRAO_JORNADAS),
+              "defaults.jornadas derivado de GRADE_PADRAO_JORNADAS",
+          )
+          check(
+              d["equipes"] == ",".join(str(e) for e in bridge.GRADE_PADRAO_EQUIPES),
+              "defaults.equipes derivado de GRADE_PADRAO_EQUIPES",
+          )
+
+          # -- 3. estado mock (micro/tarifas/cenarios vazios + defaults do bridge) ------
+          class EstadoMock:
+              micro_rows = []
+              tarifas = {}
+              cenarios = []
+              erro = None
+
+
+          def ctx_painel(cenarios):
+              st = EstadoMock()
+              st.cenarios = cenarios
+              return {
+                  "request": None,
+                  "session_id": "smoke01",
+                  "state": st,
+                  "tem_micro": bool(st.micro_rows),
+                  "tem_tarifas": bool(st.tarifas),
+                  "tem_cenarios": bool(st.cenarios),
+                  "erro": None,
+                  "defaults": d,
+              }
+
+
+          def render(nome, ctx):
+              return templates.get_template(nome).render(ctx)
+
+
+          # -- 4. painel.html com estado vazio ----------------------------------------
+          html_painel = render("painel.html", ctx_painel([]))
+          print("[smoke] painel.html (vazio): " + str(len(html_painel)) + " chars")
+
+          for p in POST_ALVOS:
+              if p == "/validar":
+                  # /validar existe no app (conferido via contrato de rotas), mas nao tem
+                  # hx-post no painel.html — nao inventar botao que o template nao tem.
+                  continue
+              check('hx-post="' + p + '"' in html_painel, "painel: hx-post " + p + " no HTML")
+
+          for cid in ["jornadas-hidden", "equipes-hidden", "executores-base-hidden", "jornada-base-hidden"]:
+              check('id="' + cid + '"' in html_painel, "painel: id " + cid + " presente")
+
+          check('name="jornada"' in html_painel, 'painel: name="jornada" (cenario unico)')
+          check('name="equipe"' in html_painel, 'painel: name="equipe" (cenario unico)')
+          check('value="' + d["jornadas"] + '"' in html_painel,
+                "painel: value default de jornadas (" + d["jornadas"] + ")")
+          check('value="' + d["equipes"] + '"' in html_painel,
+                "painel: value default de equipes (" + d["equipes"] + ")")
+          check("12 cen" in html_painel, "painel: linha da grade padrao mostra 12 cenarios")
+
+          # -- 5. painel.html com 1 cenario mock (link /resultado + bloco 3) ----------
+          cen_tabela = [
+              {
+                  "executores": 9,
+                  "jornada": 4.6,
+                  "dias_simulados": 128,
+                  "meses_simulados": 4.2,
+                  "uso_capacidade_pct": 88.3,
+                  "aprovacao": "COMPLETO",
+              }
+          ]
+          html_cen = render("painel.html", ctx_painel(cen_tabela))
+          check('href="/resultado?session_id=' in html_cen,
+                "painel (com cenarios): link /resultado presente")
+          check("Resultados" in html_cen, "painel (com cenarios): bloco de resultados renderiza")
+
+          # -- 6. resultado.html vazio e com cenarios ----------------------------------
+          ctx_res_vazio = {"request": None, "session_id": "smoke01", "cenarios": [], "erro": None}
+          html_res_vazio = render("resultado.html", ctx_res_vazio)
+          check("Nenhum cen" in html_res_vazio, "resultado (vazio): estado vazio renderiza")
+
+          cen_full = [
+              {"executores": 4, "jornada": 4.6, "dias_simulados": 262, "meses_simulados": 8.6,
+               "hh_total": 9900.0, "hh_pendente": 0.0, "capacidade_dia_hh": 18.4,
+               "uso_capacidade_pct": 92.0, "linhas_cronograma": 320, "aprovacao": "COMPLETO"},
+              {"executores": 12, "jornada": 8.0, "dias_simulados": 97, "meses_simulados": 3.2,
+               "hh_total": 9900.0, "hh_pendente": 640.0, "capacidade_dia_hh": 96.0,
+               "uso_capacidade_pct": 71.0, "linhas_cronograma": 310, "aprovacao": "INCOMPLETO"},
+          ]
+          ctx_res = {"request": None, "session_id": "smoke01", "cenarios": cen_full, "erro": None}
+          html_res = render("resultado.html", ctx_res)
+          print("[smoke] resultado.html (2 cenarios): " + str(len(html_res)) + " chars")
+          check("Grade completa" in html_res, "resultado: grade completa renderiza")
+          check("Por jornada" in html_res and "Por equipe" in html_res,
+                "resultado: analises por jornada/equipe renderizam")
+          check("COMPLETO" in html_res and "INCOMPLETO" in html_res,
+                "resultado: status dos cenarios no HTML")
+
+          # -- veredito ---------------------------------------------------------------
+          print("")
+          if falhas:
+              print("[smoke] FALHOU: " + str(len(falhas)) + " checagem(oes)")
+              for f in falhas:
+                  print("   - " + f)
+              sys.exit(1)
+          print("[smoke] TODAS AS CHECAGENS PASSARAM")
+          PYEOF
+          python /tmp/web_smoke.py
+
+      - name: Upload de logs (se falhar)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-web
+          path: tests/*.log
+          if-no-files-found: ignore
+          retention-days: 7

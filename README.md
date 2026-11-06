@@ -74,9 +74,46 @@ cd src/cloud/app && uvicorn main:app --host 0.0.0.0 --port 8000
 # Monitor de auditoria
 python src/monitors/orca_monitor.py --feed relatorios
 
+# Painel web (headless) — cenarios sem terminal interativo
+python -m uvicorn src.atm.web.app:app --host 127.0.0.1 --port 8765
+
 # Testes unitarios
 python -m unittest tests.test_orca_helpers tests.test_orca_strict
 ```
+
+## Painel Web (headless)
+
+Painel FastAPI + HTMX (`src/atm/web/`) para rodar cenários do scheduler real sem terminal interativo. Contrato completo em `docs/webbridge.md`.
+
+### Subir
+
+```bash
+pip install -r requirements-web.txt
+# o motor também depende de rich/colorama (src/atm/requirements.txt):
+pip install rich colorama
+python -m uvicorn src.atm.web.app:app --host 127.0.0.1 --port 8765
+```
+
+Abra http://127.0.0.1:8765 — o estado da sessão vive no cookie `orca_session` (nunca PID).
+
+### Fluxo em 3 passos
+
+1. **Dados** — botões "Carregar microplanejamento" e "Carregar tarifas" (passo 1 do painel).
+2. **Simular** — botão **"Simular grade padrão"** roda os 12 cenários padrão: jornadas 4.6/6/8h × equipes 4/6/9/12 operários. O toggle **"Personalizar parâmetros"** abre o modo detalhado (editar jornadas/equipes da grade, operários base, jornada base, ou simular cenário único).
+3. **Resultados** — em `/resultado`: grade completa (dias, meses, HH total/pendente, uso%, status) + análises por jornada e por equipe.
+
+Os defaults exibidos no painel vêm de `src/atm/web/bridge.py` (`GRADE_PADRAO_JORNADAS`, `GRADE_PADRAO_EQUIPES`, `defaults_simulacao()`) — fonte única, nada hardcoded no HTML.
+
+### Docker
+
+```bash
+docker compose up --build
+# painel em http://127.0.0.1:8765 (container escuta na 8000)
+```
+
+### Dados de entrada
+
+`data/planilhas/`: `microatual.xlsx` (microplanejamento) e `ct317real.xlsx` ou `STG_TARIFAS.xlsx` (tarifas). São gitignored (`*.xlsx`) e não vão para o git — sem eles o painel sobe, mas carregar/simular acusa "arquivo não encontrado".
 
 ## Requirements
 
