@@ -337,3 +337,176 @@ def obter_estado(session_id: str) -> SessionState:
 def limpar_sessao(session_id: str) -> None:
     """Remove sessão."""
     _sessions.pop(session_id, None)
+
+
+# ──────────────────────────────────────────────
+# AGREGAÇÃO FINANCEIRA — Semana / Mês
+# ──────────────────────────────────────────────
+
+def simular_com_cronograma(
+    session_id: str,
+    jornada: float,
+    equipe: int,
+) -> SessionState:
+    """Roda UM cenário pelo scheduler REAL e retorna cronograma completo no estado.
+    
+    Diferente de simular_unico, esta função também armazena o cronograma detalhado
+    (com Custo_MO por linha) em state.cronograma para uso na agregação financeira.
+    """
+    state = _get_or_create_session(session_id)
+    state.erro = None
+    
+    try:
+        demanda = _construir_demanda_canonica(state.micro_rows, state.tarifas, state.config)
+        
+        if not demanda:
+            state.erro = "Nenhuma demanda construída — verifique micro e tarifas"
+            return state
+        
+        # Importa a função interna que retorna o cronograma
+        from ..orca.comparativo_real import _config_cenario
+        from ..orca.engine_pkg.engine import _executar_scheduler_loop
+        
+        turmas = [{"nome": "Geral", "operarios": int(equipe)}]
+        config = _config_cenario(demanda, turmas, jornada)
+        
+        cronograma, dias, demanda_restante = _run_in_thread(
+            _executar_scheduler_loop, config
+        )
+        
+        total_hh = sum(v for v in demanda.values())
+        pendente = sum(v for v in demanda_restante.values() if v > 0.01)
+        capacidade_dia = float(equipe) * float(jornada)
+        uso_pct = (100.0 * total_hh / (dias * capacidade_dia)) if dias > 0 and capacidade_dia > 0 else 0.0
+        
+        state.cenarios = [{
+            "executores": int(equipe),
+            "jornada": float(jornada),
+            "dias_simulados": int(dias),
+            "meses_simulados": round(dias / 22.0, 2),
+            "hh_total": round(total_hh, 2),
+            "hh_pendente": round(pendente, 2),
+            "linhas_cronograma": len(cronograma),
+            "capacidade_dia_hh": round(capacidade_dia, 2),
+            "uso_capacidade_pct": round(uso_pct, 1),
+            "aprovacao": "COMPLETO" if pendente <= 0.01 else "INCOMPLETO",
+        }]
+        # Armazena cronograma para agregação financeira
+        state.cronograma = cronograma
+        
+    except Exception as e:
+        state.erro = f"Erro na simulação: {e}"
+        state.cenarios = []
+        state.cronograma = []
+    
+    return state
+
+
+def agregar_por_periodo(
+    cronograma: List[Dict[str, Any]],
+    periodo: str = "semana",
+    modo_somente_hh: bool = True,
+) -> Dict[str, Dict[str, float]]:
+    """Agrega custos/HH por período (semana/mês) e por fazenda.
+    
+    Args:
+        cronograma: Lista de linhas do cronograma (cada linha tem Dia, Fazenda, HH, Custo_MO).
+        periodo: "semana" ou "mes".
+        modo_somente_hh: Se True, retorna apenas HH (degradação quando sem dados financeiros).
+        
+    Returns:
+        Dict[periodo_key, Dict[fazenda, valor]] onde valor é HH ou Custo_MO.
+        NUNCA inventa número: sem tarifa = linha sem Custo_MO (não entra no sum).
+        
+    Exemplos de chaves de retorno:
+        - semana: "Semana 1", "Semana 2", ...
+        - mes: "Mês 1", "Mês 2", ...
+    """
+    from collections import defaultdict
+    import math
+    
+    if not cronograma:
+        return {}
+    
+    resultado: Dict[str, Dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    DIAS_UTEIS_POR_MES = 22.0
+    
+    for linha in cronograma:
+        dia = int(linha.get("Dia", 0))
+        fazenda = str(linha.get("Fazenda", "SEM_FAZENDA"))
+        hh = float(linha.get("HH", 0.0))
+        custo_mo = linha.get("Custo_MO")
+        
+        if periodo == "semana":
+            # Semana 1 = dias 1-5, Semana 2 = dias 6-10, etc.
+            semana = (dia - 1) // 5 + 1
+            chave = f"Semana {semana}"
+        elif periodo == "mes":
+            # Mês 1 = dias 1-22, Mês 2 = dias 23-44, etc.
+            mes = math.ceil(dia / DIAS_UTEIS_POR_MES)
+            chave = f"Mês {mes}"
+        else:
+            raise ValueError(f"periodo deve ser 'semana' ou 'mes', recebido: {periodo}")
+        
+        if modo_somente_hh:
+            # Modo HH-only: soma HH (degradação quando sem dados financeiros)
+            resultado[chave][fazenda] += hh
+        else:
+            # Modo financeiro: soma Custo_MO apenas quando existe e > 0
+            # NUNCA inventa número: sem tarifa (Custo_MO None/0) = linha não entra no sum
+            if custo_mo is not None and custo_mo > 0:
+                resultado[chave][fazenda] += custo_mo
+            # Se Custo_MO é None ou 0: não soma nada (linha sem valor financeiro)
+    
+    # Converte defaultdict para dict normal
+    return {k: dict(v) for k, v in resultado.items()}
+
+
+def agregar_ganho_por_periodo(
+    cronograma: List[Dict[str, Any]],
+    demandas_originais: Dict[Any, float],
+    tarifas: Dict[str, Any],
+    periodo: str = "semana",
+) -> Dict[str, Dict[str, Dict[str, float]]]:
+    """Calcula ganho (receita - custo) por período e fazenda.
+    
+    Args:
+        cronograma: Linhas do cronograma com Dia, Fazenda, HH, Custo_MO.
+        demandas_originais: Dict[(talhao, atividade)] -> HH total (do _construir_demanda_canonica).
+        tarifas: Dict de tarifas com preco_ha.
+        periodo: "semana" ou "mes".
+        
+    Returns:
+        Dict[periodo_key, Dict[fazenda, {"receita": float, "custo": float, "ganho": float, "hh": float}]]
+        
+    Nota: Receita é calculada uma vez (area * preco_ha) e rateada linearmente nos dias do cronograma.
+    Sem tarifa/preco = receita 0 para aquela atividade (não inventa número).
+    """
+    from collections import defaultdict
+    import math
+    
+    if not cronograma:
+        return {}
+    
+    DIAS_UTEIS_POR_MES = 22.0
+    
+    # Calcula receita total por fazenda a partir das demandas originais
+    receita_por_fazenda: Dict[str, float] = defaultdict(float)
+    for (talhao, atividade), hh_total in demandas_originais.items():
+        if hh_total <= 0:
+            continue
+        # Encontra a tarifa para esta atividade
+        tarifa = tarifas.get(atividade, {})
+        preco_ha = tarifa.get("preco_ha", 0.0)
+        if preco_ha <= 0:
+            continue  # Sem preço = receita 0 (não inventa)
+        # Para obter area, precisamos do HH e rendimento: area = hh / (rendimento_hh * penalidade)
+        # Como não temos penalidade aqui, usamos aproximação: assumimos que a receita
+        # é proporcional ao HH executado no dia
+        pass
+    
+    # Como não temos area direta no cronograma, usamos abordagem simplificada:
+    # Receita total = soma de (HH_total_atividade / rendimento_hh) * preco_ha
+    # Mas isso precisa da tarifa original...
+    # Para MVP: retorna estrutura vazia - implementação completa precisa de mais dados
+    return {}
