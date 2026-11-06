@@ -148,17 +148,7 @@ def post_simular(
     except ValueError:
         state = obter_estado(session_id)
         state.erro = "Jornadas/equipes inválidos. Use números separados por vírgula."
-        response = templates.TemplateResponse(request, "painel.html",
-            {
-                "request": request,
-                "session_id": session_id,
-                "state": state,
-                "tem_micro": bool(state.micro_rows),
-                "tem_tarifas": bool(state.tarifas),
-                "tem_cenarios": bool(state.cenarios),
-                "erro": state.erro,
-            },
-        )
+        response = templates.TemplateResponse(request, "painel.html", _ctx_painel(request, session_id, state))
         return _render_with_session(response, session_id)
     
     state = simular(session_id, jornadas_l, equipes_l, executores_base, jornada_base)
