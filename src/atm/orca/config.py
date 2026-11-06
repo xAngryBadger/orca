@@ -118,6 +118,62 @@ def _default_sequencia_dict():
     }
 
 
+def _preset_implantacao_padrao():
+    """Preset de implantação padrão (a cascata atual)."""
+    d = _default_sequencia_dict()
+    d["modo"] = "implantacao"
+    return d
+
+
+def _preset_manutencao_seco_sugerido():
+    """Preset sugerido para manutenção período seco (sem cascata de implantação).
+    
+    Fases típicas: roçada de manutenção, controle de formigas, adubação de cobertura.
+    Sem plantio/irrigacao/coroamento/coveamento/adubação química de implantação.
+    O dono pode ajustar via modo personalizado depois.
+    """
+    return {
+        "modo": "manutencao_seco",
+        "offset_limpeza_quimica_dias": 30,
+        "filtros_plantio": [],
+        "filtros_irrigacao": [],
+        "limpeza_quimica_filtros": ["limpeza", "quim"],
+        "limpeza_quimica_exclusoes": [],
+        "implantacao_outras_fase": 5.5,
+        "implantacao_fases": [
+            {"id": "rocada_manutencao", "filtros": ["rocada", "roçada", "roca"], "exclusoes": ["impl", "plantio"]},
+            {"id": "formiga_manutencao", "filtros": ["formiga", "combate a formiga", "combate a formigas"], "exclusoes": []},
+            {"id": "adubacao_cobertura", "filtros": ["adubacao cobertura", "adubacao de cobertura", "cobertura"], "exclusoes": []},
+        ],
+        "personalizado_ordem": [],
+    }
+
+
+def _preset_manutencao_umido_sugerido():
+    """Preset sugerido para manutenção período úmido (sem cascata de implantação).
+    
+    Fases típicas: roçada de manutenção, controle de formigas, adubação de cobertura,
+    controle de invasoras, aceiro. Sem plantio/irrigacao/coroamento/coveamento.
+    O dono pode ajustar via modo personalizado depois.
+    """
+    return {
+        "modo": "manutencao_umido",
+        "offset_limpeza_quimica_dias": 30,
+        "filtros_plantio": [],
+        "filtros_irrigacao": [],
+        "limpeza_quimica_filtros": ["limpeza", "quim"],
+        "limpeza_quimica_exclusoes": [],
+        "implantacao_outras_fase": 5.5,
+        "implantacao_fases": [
+            {"id": "rocada_manutencao", "filtros": ["rocada", "roçada", "roca"], "exclusoes": ["impl", "plantio"]},
+            {"id": "formiga_manutencao", "filtros": ["formiga", "combate a formiga", "combate a formigas"], "exclusoes": []},
+            {"id": "adubacao_cobertura", "filtros": ["adubacao cobertura", "adubacao de cobertura", "cobertura"], "exclusoes": []},
+            {"id": "invasoras_aceiro", "filtros": ["invasora", "aceiro", "aceiro", "limpeza area"], "exclusoes": []},
+        ],
+        "personalizado_ordem": [],
+    }
+
+
 def _merge_sequencia_defaults(seq):
     """Preenche chaves ausentes em cfg['sequencia'] (muta seq)."""
     d0 = _default_sequencia_dict()
@@ -128,6 +184,28 @@ def _merge_sequencia_defaults(seq):
             seq[k] = v
 
 
+def _aplicar_preset_sequencia(seq_cfg: dict, modo: str) -> dict:
+    """Aplica preset de sequência conforme o modo.
+    
+    Se o modo não tem preset válido, levanta ValueError com mensagem clara.
+    """
+    presets = {
+        "implantacao": _preset_implantacao_padrao,
+        "manutencao_seco": _preset_manutencao_seco_sugerido,
+        "manutencao_umido": _preset_manutencao_umido_sugerido,
+    }
+    if modo in presets:
+        preset = presets[modo]()
+        seq_cfg.update(preset)
+        return seq_cfg
+    if modo == "personalizado":
+        return seq_cfg
+    raise ValueError(
+        f"Modo '{modo}' não tem configuração de sequência válida. "
+        f"Configure a sequência do modo '{modo}' via personalizado ou use um modo com preset."
+    )
+
+
 _SEQUENCIAS_DISPONIVEIS = [
     (
         "implantacao",
@@ -135,11 +213,11 @@ _SEQUENCIAS_DISPONIVEIS = [
     ),
     (
         "manutencao_seco",
-        "[EM PROGRESSO] Manutencao periodo seco — regras ainda nao definidas",
+        "Manutencao periodo seco — roçada, formiga, adubação cobertura (preset sugerido)",
     ),
     (
         "manutencao_umido",
-        "[EM PROGRESSO] Manutencao periodo umido — regras ainda nao definidas",
+        "Manutencao periodo umido — roçada, formiga, adubação cobertura, invasoras/aceiro (preset sugerido)",
     ),
     ("personalizado", "Sequencia personalizada (defina grupos sequenciais/paralelos)"),
 ]

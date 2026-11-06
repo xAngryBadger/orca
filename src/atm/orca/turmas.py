@@ -689,15 +689,3 @@ def atividades_candidatas_mecanizado(atividades_reais, cfg=None):
         if "mecaniz" in tipo or hm > 0:
             merged.add(atv)
     return sorted(merged, key=str)
-
-
-def sequencia_manutencao_seco_placeholder(cfg):
-    aviso(
-        "Modo manutencao_seco: regras de sequencia ainda nao definidas (stub). Cascata desligada nesta execucao."
-    )
-
-
-def sequencia_manutencao_umido_placeholder(cfg):
-    aviso(
-        "Modo manutencao_umido: regras de sequencia ainda nao definidas (stub). Cascata desligada nesta execucao."
-    )

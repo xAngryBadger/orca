@@ -117,8 +117,6 @@ from ..turmas import (
     _catalogo_atividades_completo,
     menu_vincular_atividades_turma,
     resolver_conflitos_e_reatribuir,
-    sequencia_manutencao_seco_placeholder,
-    sequencia_manutencao_umido_placeholder,
     turmas_que_executam,
 )
 from ..ui import (

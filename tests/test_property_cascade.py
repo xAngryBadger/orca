@@ -15,7 +15,11 @@ for _p in (_RAIZ, _RAIZ / "src"):
         sys.path.insert(0, str(_p))
 
 from src.atm.orca.scheduler import classificar_fase_cascata_valor  # noqa: E402
-from src.atm.orca.config import _default_sequencia_dict  # noqa: E402
+from src.atm.orca.config import (
+    _default_sequencia_dict,
+    _preset_manutencao_seco_sugerido,
+    _preset_manutencao_umido_sugerido,
+)  # noqa: E402
 
 
 # ──────────────────────────────────────────────
@@ -119,17 +123,43 @@ def test_cascata_ordem_numerica_crescente_propriedade():
         )
 
 
-def test_cascata_manutencao_sem_cascata_propriedade():
-    """Modos manutencao_seco/umido retornam 0.0 (sem cascata)."""
-    seq_cfg = _seq_cfg_padrao()
-    ap = _atividades_plantio_padrao()
-    ai = _atividades_irrig_padrao()
+def test_cascata_manutencao_usa_preset_proprio():
+    """Modos manutencao usam seus próprios presets (não cascata de implantação)."""
+    # Testa preset de manutenção seco
+    seq_cfg_seco = _preset_manutencao_seco_sugerido()
+    ap = set()
+    ai = set()
+    rng = _rng()
 
-    for modo in ["manutencao_seco", "manutencao_umido"]:
-        for _ in range(50):
-            atv = _gen_atividade_cascata(_rng())
-            fv = classificar_fase_cascata_valor(atv, seq_cfg, modo, ap, ai)
-            assert fv == 0.0, f"Modo {modo}: {atv!r} retornou {fv} != 0.0"
+    # Atividades de roçada devem cair na fase 0 (rocada_manutencao)
+    for _ in range(20):
+        atv = "ROCADA " + rng.choice(["MANUAL", "MECANICA", "MANUTENCAO"])
+        fv = classificar_fase_cascata_valor(atv, seq_cfg_seco, "manutencao_seco", ap, ai)
+        assert fv == 0.0, f"Modo manutencao_seco: {atv!r} retornou {fv} != 0.0"
+
+    # Atividades de formiga devem cair na fase 1 (formiga_manutencao)
+    for _ in range(20):
+        atv = "COMBATE A FORMIGAS " + rng.choice(["IMPL", "MANUT", ""])
+        fv = classificar_fase_cascata_valor(atv, seq_cfg_seco, "manutencao_seco", ap, ai)
+        assert fv == 1.0, f"Modo manutencao_seco: {atv!r} retornou {fv} != 1.0"
+
+    # Atividades não mapeadas nos filtros de manutenção vão para "outras" (5.5)
+    atv_desconhecida = "ATIVIDADE INEXISTENTE XYZ"
+    fv = classificar_fase_cascata_valor(atv_desconhecida, seq_cfg_seco, "manutencao_seco", ap, ai)
+    assert fv == 5.5, f"Atividade não mapeada {atv_desconhecida!r}: esperado 5.5, obteve {fv}"
+
+    # Testa preset de manutenção úmido
+    seq_cfg_umido = _preset_manutencao_umido_sugerido()
+    for _ in range(20):
+        atv = "ROCADA " + rng.choice(["MANUAL", "MECANICA", "MANUTENCAO"])
+        fv = classificar_fase_cascata_valor(atv, seq_cfg_umido, "manutencao_umido", ap, ai)
+        assert fv == 0.0, f"Modo manutencao_umido: {atv!r} retornou {fv} != 0.0"
+
+    # Invasoras/aceiro devem cair na fase 3 (invasoras_aceiro)
+    for _ in range(20):
+        atv = "LIMPEZA AREA " + rng.choice(["INVASORA", "ACEIRO", ""])
+        fv = classificar_fase_cascata_valor(atv, seq_cfg_umido, "manutencao_umido", ap, ai)
+        assert fv == 3.0, f"Modo manutencao_umido: {atv!r} retornou {fv} != 3.0"
 
 
 def test_cascata_atividade_nao_mapeada_fase_outras_propriedade():

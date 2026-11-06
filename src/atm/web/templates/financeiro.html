@@ -37,7 +37,7 @@
     <div class="flex items-center gap-3">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" class="text-warn" aria-hidden="true">
             <path d="M12 9v4M12 17h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <path d="M5 19h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0 2 2v10a2 2 0 0 0 2 2z" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M5 19h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2z" stroke="currentColor" stroke-width="1.5"/>
         </svg>
         <div>
             <h3 class="font-semibold">Dados financeiros indisponíveis</h3>
@@ -48,9 +48,33 @@
 </div>
 {% else %}
 
-<!-- Agregação Semanal -->
+<!-- Gráfico de Barras: Custo por Semana (Chart.js) -->
 <section class="panel p-5 mb-5 rise">
-    <h2 class="section-title">Custo por Semana</h2>
+    <h2 class="section-title">Gráfico: Custo por Semana</h2>
+    {% if grafico_semana.labels and grafico_semana.datasets %}
+    <div class="h-80 md:h-96">
+        <canvas id="graficoSemana"></canvas>
+    </div>
+    {% else %}
+    <p class="text-muted text-sm text-center py-4">Sem dados para gráfico semanal.</p>
+    {% endif %}
+</section>
+
+<!-- Gráfico de Barras: Custo por Mês (Chart.js) -->
+<section class="panel p-5 mb-5 rise">
+    <h2 class="section-title">Gráfico: Custo por Mês</h2>
+    {% if grafico_mes.labels and grafico_mes.datasets %}
+    <div class="h-80 md:h-96">
+        <canvas id="graficoMes"></canvas>
+    </div>
+    {% else %}
+    <p class="text-muted text-sm text-center py-4">Sem dados para gráfico mensal.</p>
+    {% endif %}
+</section>
+
+<!-- Agregação Semanal (tabela) -->
+<section class="panel p-5 mb-5 rise">
+    <h2 class="section-title">Tabela: Custo por Semana</h2>
     {% if agregacao_semana %}
     <div class="overflow-x-auto border border-line rounded-md">
         <table>
@@ -82,9 +106,9 @@
     {% endif %}
 </section>
 
-<!-- Agregação Mensal -->
+<!-- Agregação Mensal (tabela) -->
 <section class="panel p-5 mb-5 rise">
-    <h2 class="section-title">Custo por Mês</h2>
+    <h2 class="section-title">Tabela: Custo por Mês</h2>
     {% if agregacao_mes %}
     <div class="overflow-x-auto border border-line rounded-md">
         <table>
@@ -146,4 +170,121 @@
 {% endif %}
 
 <p class="text-center text-xs text-faint mb-6">Dados do <span class="font-mono text-muted">scheduler real</span> · Orca v7</p>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Gráfico Semanal
+    {% if grafico_semana.labels and grafico_semana.datasets %}
+    const ctxSemana = document.getElementById('graficoSemana');
+    if (ctxSemana) {
+        new Chart(ctxSemana, {
+            type: 'bar',
+            data: {
+                labels: {{ grafico_semana.labels | tojson }},
+                datasets: {{ grafico_semana.datasets | tojson }}
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            color: '#ededed',
+                            font: { family: '"Geist Sans"', size: 11 }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: '#111111',
+                        titleColor: '#ededed',
+                        bodyColor: '#ededed',
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderWidth: 1,
+                        padding: 10,
+                        displayColors: true,
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': R$ ' + context.raw.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#888888', font: { family: '"Geist Mono"', size: 10 } }
+                    },
+                    y: {
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { 
+                            color: '#888888', 
+                            font: { family: '"Geist Mono"', size: 10 },
+                            callback: function(value) { return 'R$ ' + value.toLocaleString('pt-BR'); }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    {% endif %}
+
+    // Gráfico Mensal
+    {% if grafico_mes.labels and grafico_mes.datasets %}
+    const ctxMes = document.getElementById('graficoMes');
+    if (ctxMes) {
+        new Chart(ctxMes, {
+            type: 'bar',
+            data: {
+                labels: {{ grafico_mes.labels | tojson }},
+                datasets: {{ grafico_mes.datasets | tojson }}
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            color: '#ededed',
+                            font: { family: '"Geist Sans"', size: 11 }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: '#111111',
+                        titleColor: '#ededed',
+                        bodyColor: '#ededed',
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderWidth: 1,
+                        padding: 10,
+                        displayColors: true,
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': R$ ' + context.raw.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#888888', font: { family: '"Geist Mono"', size: 10 } }
+                    },
+                    y: {
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { 
+                            color: '#888888', 
+                            font: { family: '"Geist Mono"', size: 10 },
+                            callback: function(value) { return 'R$ ' + value.toLocaleString('pt-BR'); }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    {% endif %}
+</script>
 {% endblock %}

@@ -45,6 +45,7 @@ from .comparativo_mec import (
 from .config import (
     OUTPUT_DIR,
     _agrupar_fazendas_por_empresa,
+    _aplicar_preset_sequencia,
     _detectar_cidade_por_fazenda,
     _distribuir_fazendas_por_territorio,
     _merge_sequencia_defaults,
@@ -111,8 +112,6 @@ from .turmas import (
     _catalogo_atividades_completo,
     menu_vincular_atividades_turma,
     resolver_conflitos_e_reatribuir,
-    sequencia_manutencao_seco_placeholder,
-    sequencia_manutencao_umido_placeholder,
     turmas_que_executam,
 )
 from .ui import (
@@ -1198,11 +1197,16 @@ def _configurar_sequencia_bloqueio(cfg, seq_cfg, atividades_reais, ctx, _batch):
     else:
         contexto_sessao.atualizar_modo(modo_ctx)
 
-    if modo_seq == "manutencao_seco":
-        sequencia_manutencao_seco_placeholder(cfg)
-    elif modo_seq == "manutencao_umido":
-        sequencia_manutencao_umido_placeholder(cfg)
-    usar_cascata = modo_seq in ("implantacao", "personalizado")
+    # Aplica preset de sequência (levantará ValueError se modo não tem config válida)
+    try:
+        _aplicar_preset_sequencia(seq_cfg, modo_seq)
+    except ValueError as e:
+        erro(str(e))
+        raise
+
+    # Cascata ativa para todos os modos que tenham fases configuradas
+    # (modo personalizado com ordem definida, ou implantação, ou manutenção com presets)
+    usar_cascata = bool(seq_cfg.get("implantacao_fases") or seq_cfg.get("personalizado_ordem"))
     diagnosticar_sequencia_atividades(atividades_reais, seq_cfg, modo_seq)
 
     if _batch:

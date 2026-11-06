@@ -93,7 +93,7 @@ class TestE2ERealDataBatch(unittest.TestCase):
             "penalidade": 1.0,
             "modo": "batch",
             "session_hh": {},
-            "modo_seq": "padrao",
+            "modo_seq": "implantacao",
             "usar_bloqueio_global": False,
             "usar_reforco_automatico": True,
             "usar_pool_pos_bloqueio": False

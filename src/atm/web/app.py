@@ -216,12 +216,169 @@ def get_resultado(request: Request, session_id: Optional[str] = None):
     return _render_with_session(response, sid)
 
 
+def _preparar_dados_grafico_semana(agregacao_semana: Dict[str, Dict[str, float]]) -> Dict[str, List]:
+    """Prepara labels e valores para gráfico de barras por semana (Chart.js)."""
+    if not agregacao_semana:
+        return {"labels": [], "datasets": []}
+    
+    # Ordena semanas
+    def _semana_key(k):
+        try:
+            return int(k.replace("Semana ", ""))
+        except (ValueError, AttributeError):
+            return 999
+    
+    labels = sorted(agregacao_semana.keys(), key=_semana_key)
+    
+    # Coleta todas as fazendas
+    fazendas = set()
+    for semana_data in agregacao_semana.values():
+        fazendas.update(semana_data.keys())
+    fazendas = sorted(fazendas)
+    
+    datasets = []
+    colors = [
+        "rgba(94, 139, 255, 0.8)",   # accent
+        "rgba(62, 207, 142, 0.8)",   # ok
+        "rgba(232, 179, 75, 0.8)",   # warn
+        "rgba(240, 106, 106, 0.8)",  # err
+        "rgba(180, 120, 255, 0.8)",  # purple
+        "rgba(255, 160, 60, 0.8)",   # orange
+    ]
+    
+    for i, fazenda in enumerate(fazendas):
+        data = []
+        for label in labels:
+            val = agregacao_semana.get(label, {}).get(fazenda, 0.0)
+            data.append(round(val, 2))
+        datasets.append({
+            "label": fazenda,
+            "data": data,
+            "backgroundColor": colors[i % len(colors)],
+            "borderColor": colors[i % len(colors)].replace("0.8", "1.0"),
+            "borderWidth": 1,
+        })
+    
+    return {"labels": labels, "datasets": datasets}
+
+
+def _preparar_dados_grafico_mes(agregacao_mes: Dict[str, Dict[str, float]]) -> Dict[str, List]:
+    """Prepara labels e valores para gráfico de barras por mês (Chart.js)."""
+    if not agregacao_mes:
+        return {"labels": [], "datasets": []}
+    
+    # Ordena meses
+    def _mes_key(k):
+        try:
+            return int(k.replace("Mês ", ""))
+        except (ValueError, AttributeError):
+            return 999
+    
+    labels = sorted(agregacao_mes.keys(), key=_mes_key)
+    
+    # Coleta todas as fazendas
+    fazendas = set()
+    for mes_data in agregacao_mes.values():
+        fazendas.update(mes_data.keys())
+    fazendas = sorted(fazendas)
+    
+    datasets = []
+    colors = [
+        "rgba(94, 139, 255, 0.8)",   # accent
+        "rgba(62, 207, 142, 0.8)",   # ok
+        "rgba(232, 179, 75, 0.8)",   # warn
+        "rgba(240, 106, 106, 0.8)",  # err
+        "rgba(180, 120, 255, 0.8)",  # purple
+        "rgba(255, 160, 60, 0.8)",   # orange
+    ]
+    
+    for i, fazenda in enumerate(fazendas):
+        data = []
+        for label in labels:
+            val = agregacao_mes.get(label, {}).get(fazenda, 0.0)
+            data.append(round(val, 2))
+        datasets.append({
+            "label": fazenda,
+            "data": data,
+            "backgroundColor": colors[i % len(colors)],
+            "borderColor": colors[i % len(colors)].replace("0.8", "1.0"),
+            "borderWidth": 1,
+        })
+    
+    return {"labels": labels, "datasets": datasets}
+
+
+@app.get("/cronograma", response_class=HTMLResponse)
+def get_cronograma(request: Request, session_id: Optional[str] = None):
+    """Renderiza o cronograma real que simular_com_cronograma guarda em state.cronograma.
+    
+    Visual por talhão/fazenda: tabela com Dia, Talhão, Atividade, Turma, HH, Custo_MO (se modo financeiro).
+    Limita a 200 linhas com aviso.
+    """
+    sid = session_id or _get_session_id(request)
+    state = obter_estado(sid)
+    
+    modo_financeiro = not state.config.get("modo_somente_hh", True)
+    
+    # Precisa de cenários para saber qual simular
+    if not state.cenarios:
+        response = templates.TemplateResponse(request, "cronograma.html",
+            {
+                "request": request,
+                "session_id": sid,
+                "erro": "Nenhum cenário simulado. Rode a simulação primeiro.",
+                "modo_financeiro": modo_financeiro,
+            },
+        )
+        return _render_with_session(response, sid)
+    
+    # Usa o primeiro cenário como representativo
+    cenario_ref = state.cenarios[0]
+    jornada = cenario_ref["jornada"]
+    equipe = cenario_ref["executores"]
+    
+    # Roda cenário com cronograma
+    state = simular_com_cronograma(sid, jornada, equipe)
+    
+    if state.erro:
+        response = templates.TemplateResponse(request, "cronograma.html",
+            {
+                "request": request,
+                "session_id": sid,
+                "erro": state.erro,
+                "modo_financeiro": modo_financeiro,
+            },
+        )
+        return _render_with_session(response, sid)
+    
+    cronograma = getattr(state, "cronograma", [])
+    
+    # Limita a 200 linhas
+    limite = 200
+    cronograma_exibicao = cronograma[:limite]
+    avisar_limite = len(cronograma) > limite
+    
+    response = templates.TemplateResponse(request, "cronograma.html",
+        {
+            "request": request,
+            "session_id": sid,
+            "cenario_ref": cenario_ref,
+            "cronograma": cronograma_exibicao,
+            "total_linhas": len(cronograma),
+            "limite_exibicao": limite,
+            "avisar_limite": avisar_limite,
+            "modo_financeiro": modo_financeiro,
+        },
+    )
+    return _render_with_session(response, sid)
+
+
 @app.get("/financeiro", response_class=HTMLResponse)
 def get_financeiro(request: Request, session_id: Optional[str] = None):
     """Painel financeiro — agregação de custo/ganho por semana/mês.
     
     Roda um cenário representativo (primeiro da grade ou default) com cronograma
-    e exibe agregação por período.
+    e exibe agregação por período + gráfico Chart.js.
     """
     sid = session_id or _get_session_id(request)
     state = obter_estado(sid)
@@ -264,6 +421,10 @@ def get_financeiro(request: Request, session_id: Optional[str] = None):
     agregacao_semana = agregar_por_periodo(cronograma, "semana", modo_somente_hh=not modo_financeiro)
     agregacao_mes = agregar_por_periodo(cronograma, "mes", modo_somente_hh=not modo_financeiro)
     
+    # Prepara dados para Chart.js
+    grafico_semana = _preparar_dados_grafico_semana(agregacao_semana)
+    grafico_mes = _preparar_dados_grafico_mes(agregacao_mes)
+    
     response = templates.TemplateResponse(request, "financeiro.html",
         {
             "request": request,
@@ -271,6 +432,8 @@ def get_financeiro(request: Request, session_id: Optional[str] = None):
             "cenario_ref": cenario_ref,
             "agregacao_semana": agregacao_semana,
             "agregacao_mes": agregacao_mes,
+            "grafico_semana": grafico_semana,
+            "grafico_mes": grafico_mes,
             "modo_financeiro": modo_financeiro,
             "tem_dados_financeiros": modo_financeiro and cronograma,
         },

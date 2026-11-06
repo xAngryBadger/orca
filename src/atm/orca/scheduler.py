@@ -72,18 +72,17 @@ def classificar_fase_cascata_valor(
 ):
     """
     Retorna indice numerico de fase para cascata global.
-    manutencao_seco/umido: 0.0 (sem cascata).
+    O comportamento agora deriva inteiramente da configuração de sequência (presets ou personalizado).
+    Modos sem plantio/irrigacao nas configurações (ex.: manutencao) não terão fases 6/7.
     """
-    if modo in ("manutencao_seco", "manutencao_umido"):
-        return 0.0
     if eh_limpeza_quimica_pos_plantio(atv, seq_cfg):
         return 8.0
     if atv in atividades_plantio or _match_filtros_fase(
-        atv, seq_cfg.get("filtros_plantio") or ["plantio"], None
+        atv, seq_cfg.get("filtros_plantio") or [], None
     ):
         return 6.0
     if atv in atividades_irrig or _match_filtros_fase(
-        atv, seq_cfg.get("filtros_irrigacao") or ["irrig"], None
+        atv, seq_cfg.get("filtros_irrigacao") or [], None
     ):
         return 7.0
     fases = _fases_ordem_config(seq_cfg, modo)
@@ -130,7 +129,7 @@ def _min_fase_cascata_por_talhao(
     Retorna dict {talhao: min_fase_valor} — phase N+1 so comeca no talhao X
     quando phase N terminar naquele talhao especifico (nao espera todos).
     """
-    if not usar_cascata or modo in ("manutencao_seco", "manutencao_umido"):
+    if not usar_cascata:
         return {}
     bloqueadas = set(atividades_bloqueadas or [])
     por_talhao = defaultdict(list)
@@ -176,32 +175,30 @@ def pode_agendar_atividade_cascata(
         ):
             return False
     if atv in atividades_irrig or _match_filtros_fase(
-        atv, seq_cfg.get("filtros_irrigacao") or ["irrig"], None
+        atv, seq_cfg.get("filtros_irrigacao") or [], None
     ):
         if _demanda_plantio_talhao(talhao, demanda_global, atividades_plantio):
             return False
-    if usar_cascata and modo not in ("manutencao_seco", "manutencao_umido"):
-            fv = classificar_fase_cascata_valor(
-                atv, seq_cfg, modo, atividades_plantio, atividades_irrig
-            )
-            mf = min_fase_dia.get(talhao)
-            if mf is not None and abs(fv - mf) > 1e-6 and fv > mf + 1e-6:
-                return False
+    if usar_cascata:
+        fv = classificar_fase_cascata_valor(
+            atv, seq_cfg, modo, atividades_plantio, atividades_irrig
+        )
+        mf = min_fase_dia.get(talhao)
+        if mf is not None and abs(fv - mf) > 1e-6 and fv > mf + 1e-6:
+            return False
     return True
 
 
 def diagnosticar_sequencia_atividades(atividades_reais, seq_cfg, modo):
     """Avisos: atividades classificadas como 'outras' (fase intermediaria) e lista."""
-    if modo in ("manutencao_seco", "manutencao_umido"):
-        return
     ap = set(
         atividades_por_filtro(
-            atividades_reais, seq_cfg.get("filtros_plantio") or ["plantio"]
+            atividades_reais, seq_cfg.get("filtros_plantio") or []
         )
     )
     ai = set(
         atividades_por_filtro(
-            atividades_reais, seq_cfg.get("filtros_irrigacao") or ["irrig"]
+            atividades_reais, seq_cfg.get("filtros_irrigacao") or []
         )
     )
     outras = []

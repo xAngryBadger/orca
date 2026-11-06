@@ -25,6 +25,17 @@
 </div>
 {% endif %}
 
+{% if cenarios %}
+<div class="mb-5 px-4 py-3 rounded-md border border-accent/30 bg-accent/10 text-accent text-sm font-medium rise flex items-center gap-3">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M9 11l3 3L22 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span>Cronograma detalhado disponível — </span>
+    <a href="/cronograma?session_id={{ session_id }}" class="underline hover:no-underline">Ver cronograma por talhão/dia</a>
+</div>
+{% endif %}
+
 {% if not cenarios %}
 <div class="panel p-10 text-center rise">
     <svg class="mx-auto mb-4" width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden="true">

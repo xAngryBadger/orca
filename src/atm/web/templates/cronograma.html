@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}Orca — Cronograma{% endblock %}
+
+{% block content %}
+<div class="flex items-center gap-3 mb-6 rise">
+    <a href="/resultado?session_id={{ session_id }}" class="btn btn-ghost">← Voltar aos resultados</a>
+    <div>
+        <h1 class="font-semibold text-xl tracking-tight">Cronograma Detalhado</h1>
+        <p class="text-muted text-xs mt-0.5 font-mono">
+            Cenário: {{ cenario_ref.executores }} operários × {{ cenario_ref.jornada }}h —
+            {{ cenario_ref.dias_simulados }} dias ({{ cenario_ref.meses_simulados }} meses)
+        </p>
+    </div>
+</div>
+
+{% if erro %}
+<div class="mb-5 px-4 py-3 rounded-md border border-err/30 bg-err/10 text-err text-sm font-medium rise">{{ erro }}</div>
+{% endif %}
+
+{% if avisar_limite %}
+<div class="mb-5 px-4 py-3 rounded-md border border-warn/30 bg-warn/10 text-warn text-sm font-medium rise flex items-center gap-3">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 9v4M12 17h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M5 19h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2z" stroke="currentColor" stroke-width="1.5"/>
+    </svg>
+    <span>Exibindo {{ limite_exibicao }} de {{ total_linhas }} linhas. Use a exportação Excel para o cronograma completo.</span>
+{% elif total_linhas == 0 %}
+<div class="panel p-10 text-center rise">
+    <svg class="mx-auto mb-4" width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" stroke="#888888" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    <h2 class="font-semibold text-base mb-1">Cronograma vazio</h2>
+    <p class="text-muted text-sm mb-5">Nenhuma atividade agendada para este cenário.</p>
+    <a href="/?session_id={{ session_id }}" class="btn btn-primary">Voltar ao painel</a>
+</div>
+{% endif %}
+
+{% if cronograma %}
+<section class="panel p-5 mb-5 rise">
+    <h2 class="section-title">Cronograma (Dia → Atividades por Talhão)</h2>
+    <div class="overflow-x-auto border border-line rounded-md">
+        <table>
+            <thead>
+                <tr>
+                    <th>Dia</th>
+                    <th>Fazenda</th>
+                    <th>Talhão</th>
+                    <th>Atividade</th>
+                    <th>Turma</th>
+                    <th class="text-right">HH</th>
+                    {% if modo_financeiro %}
+                    <th class="text-right">Custo MO (R$)</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for linha in cronograma %}
+                <tr>
+                    <td class="font-mono">{{ linha.Dia }}</td>
+                    <td>{{ linha.Fazenda }}</td>
+                    <td class="font-mono">{{ linha.Talhao }}</td>
+                    <td>{{ linha.Atividade }}</td>
+                    <td>{{ linha.Turma }}</td>
+                    <td class="font-mono text-right">{{ linha.HH | round(2) }}</td>
+                    {% if modo_financeiro %}
+                    <td class="font-mono text-right">{{ linha.Custo_MO | round(2) if linha.Custo_MO is not none else '—' }}</td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<!-- Resumo por dia -->
+<section class="panel p-5 rise">
+    <h2 class="section-title">Resumo por Dia</h2>
+    <div class="overflow-x-auto border border-line rounded-md">
+        <table>
+            <thead>
+                <tr>
+                    <th>Dia</th>
+                    <th class="text-right">HH Total</th>
+                    {% if modo_financeiro %}
+                    <th class="text-right">Custo MO Total (R$)</th>
+                    {% endif %}
+                    <th>Atividades</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set dias_dict = {} %}
+                {% for linha in cronograma %}
+                    {% set dia = linha.Dia %}
+                    {% if dia not in dias_dict %}
+                        {% set _ = dias_dict.__setitem__(dia, {"hh": 0, "custo": 0, "atividades": set()}) %}
+                    {% endif %}
+                    {% set _ = dias_dict[dia].__setitem__("hh", dias_dict[dia]["hh"] + (linha.HH or 0)) %}
+                    {% if modo_financeiro and linha.Custo_MO is not none %}
+                        {% set _ = dias_dict[dia].__setitem__("custo", dias_dict[dia]["custo"] + linha.Custo_MO) %}
+                    {% endif %}
+                    {% set _ = dias_dict[dia]["atividades"].add(linha.Atividade) %}
+                {% endfor %}
+                {% for dia in dias_dict.keys() | sort %}
+                <tr>
+                    <td class="font-mono">{{ dia }}</td>
+                    <td class="font-mono text-right">{{ dias_dict[dia]["hh"] | round(2) }}</td>
+                    {% if modo_financeiro %}
+                    <td class="font-mono text-right">{{ dias_dict[dia]["custo"] | round(2) }}</td>
+                    {% endif %}
+                    <td>{{ dias_dict[dia]["atividades"] | length }} atividade(s): {{ dias_dict[dia]["atividades"] | join(", ") }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endif %}
+
+<p class="text-center text-xs text-faint mb-6">Dados do <span class="font-mono text-muted">scheduler real</span> · Orca v7</p>
+{% endblock %}
