@@ -37,7 +37,7 @@
                 <form hx-post="/carregar-micro" hx-target="body" hx-swap="outerHTML">
                     <input type="hidden" name="session_id" value="{{ session_id }}">
                     <button type="submit" class="btn btn-ghost w-full" {% if tem_micro %}disabled{% endif %}>
-                        <span class="htmx-indicator"></span>Carregar microatual.xlsx
+                        <span class="htmx-indicator"></span>Carregar microplanejamento
                     </button>
                 </form>
                 <p class="text-[0.68rem] text-faint text-center font-mono">data/planilhas/microatual.xlsx</p>
@@ -45,10 +45,10 @@
                 <form hx-post="/carregar-tarifas" hx-target="body" hx-swap="outerHTML">
                     <input type="hidden" name="session_id" value="{{ session_id }}">
                     <button type="submit" class="btn btn-ghost w-full" {% if tem_tarifas %}disabled{% endif %}>
-                        <span class="htmx-indicator"></span>Carregar tarifas (ct317real)
+                        <span class="htmx-indicator"></span>Carregar tarifas
                     </button>
                 </form>
-                <p class="text-[0.68rem] text-faint text-center font-mono">data/planilhas/ct317real.xlsx</p>
+                <p class="text-[0.68rem] text-faint text-center font-mono">data/planilhas/ct317real.xlsx · STG_TARIFAS.xlsx</p>
             </div>
         </section>
 
@@ -82,7 +82,7 @@
                 </button>
             </form>
             <p class="text-[0.68rem] text-faint text-center font-mono mt-2">
-                {{ defaults.jornadas }}h × {{ defaults.equipes }} ops · base {{ defaults.executores_base }} ops / {{ defaults.jornada_base }}h
+                {{ (defaults.jornadas.split(',')|length) * (defaults.equipes.split(',')|length) }} cenários · {{ defaults.jornadas }}h × {{ defaults.equipes }} ops · base {{ defaults.executores_base }} ops / {{ defaults.jornada_base }}h
             </p>
 
             <!-- Modo detalhado: toggle sem recarregar -->
