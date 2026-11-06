@@ -369,6 +369,10 @@ def simular_com_cronograma(
         
         turmas = [{"nome": "Geral", "operarios": int(equipe)}]
         config = _config_cenario(demanda, turmas, jornada)
+        # _config_cenario entrega cfg/tarifas vazios (caminho de métricas é HH puro);
+        # o cronograma financeiro precisa das tarifas reais da sessão (Custo_MO por linha).
+        config.cfg = state.config or {}
+        config.tarifas = state.tarifas or {}
         
         cronograma, dias, demanda_restante = _run_in_thread(
             _executar_scheduler_loop, config
