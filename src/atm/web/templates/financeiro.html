@@ -57,7 +57,8 @@
             <thead>
                 <tr>
                     <th>Período</th>
-                    {% for fazenda in agregacao_semana.values()|first|keys|list|sort %}
+                    {% set _sem_first = agregacao_semana.values()|first %}
+                    {% for fazenda in _sem_first.keys()|sort %}
                     <th>{{ fazenda }}</th>
                     {% endfor %}
                     <th class="text-right">Total</th>
@@ -68,9 +69,9 @@
                 <tr>
                     <td class="font-mono">{{ periodo }}</td>
                     {% for fazenda in fazendas.keys()|list|sort %}
-                    <td class="font-mono text-right">{{ fazendas[fazenda] | floatformat:2 }}</td>
+                    <td class="font-mono text-right">{{ fazendas[fazenda] |round(2) }}</td>
                     {% endfor %}
-                    <td class="font-mono text-right font-semibold">{{ fazendas.values()|sum | floatformat:2 }}</td>
+                    <td class="font-mono text-right font-semibold">{{ fazendas.values()|sum |round(2) }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -90,7 +91,8 @@
             <thead>
                 <tr>
                     <th>Período</th>
-                    {% for fazenda in agregacao_mes.values()|first|keys|list|sort %}
+                    {% set _mes_first = agregacao_mes.values()|first %}
+                    {% for fazenda in _mes_first.keys()|sort %}
                     <th>{{ fazenda }}</th>
                     {% endfor %}
                     <th class="text-right">Total</th>
@@ -101,9 +103,9 @@
                 <tr>
                     <td class="font-mono">{{ periodo }}</td>
                     {% for fazenda in fazendas.keys()|list|sort %}
-                    <td class="font-mono text-right">{{ fazendas[fazenda] | floatformat:2 }}</td>
+                    <td class="font-mono text-right">{{ fazendas[fazenda] |round(2) }}</td>
                     {% endfor %}
-                    <td class="font-mono text-right font-semibold">{{ fazendas.values()|sum | floatformat:2 }}</td>
+                    <td class="font-mono text-right font-semibold">{{ fazendas.values()|sum |round(2) }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -115,15 +117,19 @@
 </section>
 
 <!-- Resumo Total -->
+{% set ns_sem = namespace(total=0) %}
+{% for fazendas in agregacao_semana.values() %}{% set ns_sem.total = ns_sem.total + (fazendas.values()|sum) %}{% endfor %}
+{% set ns_mes = namespace(total=0) %}
+{% for fazendas in agregacao_mes.values() %}{% set ns_mes.total = ns_mes.total + (fazendas.values()|sum) %}{% endfor %}
 <section class="panel p-5 rise">
     <h2 class="section-title">Resumo Total</h2>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div class="bg-bg border border-line rounded-md p-3.5">
-            <div class="text-xl font-semibold font-mono text-txt">{{ agregacao_semana.values()|map(attribute='values')|flatten|sum | floatformat:2 }}</div>
+            <div class="text-xl font-semibold font-mono text-txt">{{ ns_sem.total|round(2) }}</div>
             <div class="text-[0.66rem] text-faint uppercase tracking-wider mt-1">Custo Total (Semanas)</div>
         </div>
         <div class="bg-bg border border-line rounded-md p-3.5">
-            <div class="text-xl font-semibold font-mono text-txt">{{ agregacao_mes.values()|map(attribute='values')|flatten|sum | floatformat:2 }}</div>
+            <div class="text-xl font-semibold font-mono text-txt">{{ ns_mes.total|round(2) }}</div>
             <div class="text-[0.66rem] text-faint uppercase tracking-wider mt-1">Custo Total (Meses)</div>
         </div>
         <div class="bg-bg border border-line rounded-md p-3.5">
