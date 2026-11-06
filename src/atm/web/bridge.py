@@ -88,16 +88,22 @@ def _encontrar_micro_path(cfg: Dict[str, Any]) -> Optional[str]:
 
 
 def _encontrar_ct_path() -> Optional[str]:
-    """Encontra caminho do CT (tarifas)."""
-    path = _find_default_ct_path()
-    if path and os.path.exists(path):
-        return path
-    # Fallback: procura STG_TARIFAS.xlsx gerado
+    """Encontra caminho do CT (tarifas).
+
+    O painel só lê o formato STG (STG_TARIFAS.xlsx / CT_317_NORMALIZADA.xlsx) —
+    CT cru precisa ser processado antes (normalizar_ct313 via CLI). Por isso o STG
+    tem prioridade sobre o path default, que aponta pro CT cru.
+    """
+    # STG processado tem prioridade (é o que carregar_stg_tarifas sabe ler)
     base = os.path.join(os.getcwd(), "data", "planilhas")
-    for nome in ["STG_TARIFAS.xlsx", "stg_tarifas.xlsx"]:
+    for nome in ["STG_TARIFAS.xlsx", "CT_317_NORMALIZADA.xlsx", "stg_tarifas.xlsx"]:
         p = os.path.join(base, nome)
         if os.path.exists(p):
             return p
+    # Sem STG: cai no path default (CT cru) — o loader vai orientar a processar
+    path = _find_default_ct_path()
+    if path and os.path.exists(path):
+        return path
     # Procura CT direto
     for f in buscar_arquivos_excel():
         n = f.lower()
