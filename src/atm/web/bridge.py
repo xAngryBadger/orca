@@ -466,6 +466,26 @@ def agregar_por_periodo(
     return {k: dict(v) for k, v in resultado.items()}
 
 
+def resumir_por_dia(cronograma: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Resume o cronograma por dia: HH total, Custo_MO total e atividades (ordenado por dia)."""
+    from collections import defaultdict
+
+    acc: Dict[Any, Dict[str, Any]] = {}
+    for linha in cronograma:
+        dia = linha.get("Dia", 0)
+        if dia not in acc:
+            acc[dia] = {"dia": dia, "hh": 0.0, "custo": 0.0, "atividades": []}
+        a = acc[dia]
+        a["hh"] += float(linha.get("HH") or 0.0)
+        custo = linha.get("Custo_MO")
+        if custo is not None:
+            a["custo"] += float(custo or 0.0)
+        atv = str(linha.get("Atividade") or "")
+        if atv and atv not in a["atividades"]:
+            a["atividades"].append(atv)
+    return [acc[d] for d in sorted(acc)]
+
+
 def agregar_ganho_por_periodo(
     cronograma: List[Dict[str, Any]],
     demandas_originais: Dict[Any, float],

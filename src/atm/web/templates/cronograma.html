@@ -7,10 +7,12 @@
     <a href="/resultado?session_id={{ session_id }}" class="btn btn-ghost">← Voltar aos resultados</a>
     <div>
         <h1 class="font-semibold text-xl tracking-tight">Cronograma Detalhado</h1>
+        {% if cenario_ref %}
         <p class="text-muted text-xs mt-0.5 font-mono">
             Cenário: {{ cenario_ref.executores }} operários × {{ cenario_ref.jornada }}h —
             {{ cenario_ref.dias_simulados }} dias ({{ cenario_ref.meses_simulados }} meses)
         </p>
+        {% endif %}
     </div>
 </div>
 
@@ -73,7 +75,7 @@
     </div>
 </section>
 
-<!-- Resumo por dia -->
+<!-- Resumo por dia (calculado no backend) -->
 <section class="panel p-5 rise">
     <h2 class="section-title">Resumo por Dia</h2>
     <div class="overflow-x-auto border border-line rounded-md">
@@ -89,26 +91,14 @@
                 </tr>
             </thead>
             <tbody>
-                {% set dias_dict = {} %}
-                {% for linha in cronograma %}
-                    {% set dia = linha.Dia %}
-                    {% if dia not in dias_dict %}
-                        {% set _ = dias_dict.__setitem__(dia, {"hh": 0, "custo": 0, "atividades": set()}) %}
-                    {% endif %}
-                    {% set _ = dias_dict[dia].__setitem__("hh", dias_dict[dia]["hh"] + (linha.HH or 0)) %}
-                    {% if modo_financeiro and linha.Custo_MO is not none %}
-                        {% set _ = dias_dict[dia].__setitem__("custo", dias_dict[dia]["custo"] + linha.Custo_MO) %}
-                    {% endif %}
-                    {% set _ = dias_dict[dia]["atividades"].add(linha.Atividade) %}
-                {% endfor %}
-                {% for dia in dias_dict.keys() | sort %}
+                {% for dia in resumo_dias %}
                 <tr>
-                    <td class="font-mono">{{ dia }}</td>
-                    <td class="font-mono text-right">{{ dias_dict[dia]["hh"] | round(2) }}</td>
+                    <td class="font-mono">{{ dia.dia }}</td>
+                    <td class="font-mono text-right">{{ dia.hh | round(2) }}</td>
                     {% if modo_financeiro %}
-                    <td class="font-mono text-right">{{ dias_dict[dia]["custo"] | round(2) }}</td>
+                    <td class="font-mono text-right">{{ dia.custo | round(2) }}</td>
                     {% endif %}
-                    <td>{{ dias_dict[dia]["atividades"] | length }} atividade(s): {{ dias_dict[dia]["atividades"] | join(", ") }}</td>
+                    <td>{{ dia.atividades | join(", ") }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

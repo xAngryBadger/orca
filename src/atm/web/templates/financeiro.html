@@ -7,10 +7,12 @@
     <a href="/resultado?session_id={{ session_id }}" class="btn btn-ghost">← Voltar aos resultados</a>
     <div>
         <h1 class="font-semibold text-xl tracking-tight">Agregação Financeira</h1>
+        {% if cenario_ref %}
         <p class="text-muted text-xs mt-0.5 font-mono">
             Cenário: {{ cenario_ref.executores }} operários × {{ cenario_ref.jornada }}h —
             {{ cenario_ref.dias_simulados }} dias ({{ cenario_ref.meses_simulados }} meses)
         </p>
+        {% endif %}
     </div>
 </div>
 
@@ -63,7 +65,7 @@
 <!-- Gráfico de Barras: Custo por Mês (Chart.js) -->
 <section class="panel p-5 mb-5 rise">
     <h2 class="section-title">Gráfico: Custo por Mês</h2>
-    {% if grafico_mes.labels and grafico_mes.datasets %}
+    {% if grafico_mes and grafico_mes.labels and grafico_mes.datasets %}
     <div class="h-80 md:h-96">
         <canvas id="graficoMes"></canvas>
     </div>
@@ -176,7 +178,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     // Gráfico Semanal
-    {% if grafico_semana.labels and grafico_semana.datasets %}
+    {% if grafico_semana and grafico_semana.labels and grafico_semana.datasets %}
     const ctxSemana = document.getElementById('graficoSemana');
     if (ctxSemana) {
         new Chart(ctxSemana, {
@@ -232,7 +234,7 @@
     {% endif %}
 
     // Gráfico Mensal
-    {% if grafico_mes.labels and grafico_mes.datasets %}
+    {% if grafico_mes and grafico_mes.labels and grafico_mes.datasets %}
     const ctxMes = document.getElementById('graficoMes');
     if (ctxMes) {
         new Chart(ctxMes, {

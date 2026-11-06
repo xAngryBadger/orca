@@ -364,10 +364,12 @@ def get_cronograma(request: Request, session_id: Optional[str] = None):
             "session_id": sid,
             "cenario_ref": cenario_ref,
             "cronograma": cronograma_exibicao,
+            "resumo_dias": resumir_por_dia(cronograma_exibicao),
             "total_linhas": len(cronograma),
             "limite_exibicao": limite,
             "avisar_limite": avisar_limite,
             "modo_financeiro": modo_financeiro,
+            "tem_dados_financeiros": modo_financeiro,
         },
     )
     return _render_with_session(response, sid)
