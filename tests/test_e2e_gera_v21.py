@@ -15,7 +15,7 @@ sys.path.insert(0, str(BASE_DIR))
 
 from src.atm.orca.config import carregar_config, salvar_config
 from src.atm.orca.de_para import aplicar_depara_padrao_exame
-from src.atm.orca.io import _find_default_ct_path, carregar_planilha_microplanejamento
+from src.atm.orca.io import _find_default_ct_path, _prefer_micro_sheet, carregar_planilha_microplanejamento
 from src.atm.orca.tarifas import carregar_stg_tarifas, normalizar_ct313
 
 
@@ -42,7 +42,9 @@ class TestE2EGeraV21(unittest.TestCase):
 
     def test_01_valida_arquivos_entrada(self):
         """Valida que os arquivos de entrada existem e tem dados."""
-        df_micro = pd.read_excel(self.micro_path, sheet_name=0)
+        # Aba de micro pela MESMA lógica da produção (sheet 0 é insumos, não micro)
+        _aba_micro = _prefer_micro_sheet(pd.ExcelFile(self.micro_path).sheet_names)
+        df_micro = pd.read_excel(self.micro_path, sheet_name=_aba_micro)
         self.assertGreater(len(df_micro), 600, "Micro com poucas linhas")
 
         df_ct = pd.read_excel(self.ct_path)

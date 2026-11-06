@@ -242,11 +242,12 @@ class TesteValidacaoDados(unittest.TestCase):
         ct317_path = Path("data/planilhas/ct317real.xlsx")
         self.assertTrue(ct317_path.exists(), f"Arquivo não encontrado: {ct317_path}")
 
-        ct317 = pd.read_excel(ct317_path, sheet_name='Preço Final')
+        # Sheet "Preço Final" tem 3 linhas de título; o cabeçalho real está na linha 3
+        ct317 = pd.read_excel(ct317_path, sheet_name='Preço Final', header=3)
         self.assertGreater(len(ct317), 0, "ct317real.xlsx está vazio")
 
-        # Colunas necessárias
-        colunas_necessarias = ['N', 'OPERAÇÕES', ' Rendimento HH/ha', 'PREÇO R$']
+        # Colunas necessárias (layout real do CT317, igual ao parser de tarifas.py)
+        colunas_necessarias = ['N', 'OPERAÇÕES', 'Rendimento']
         for col in colunas_necessarias:
             self.assertIn(col, ct317.columns, f"Coluna {col} não encontrada em ct317real.xlsx")
 

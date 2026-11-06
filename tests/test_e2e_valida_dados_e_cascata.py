@@ -19,6 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pandas as pd
+from src.atm.orca.io import _prefer_micro_sheet
 from src.atm.orca.scheduler import _min_fase_cascata_por_talhao
 
 
@@ -35,8 +36,10 @@ class TesteE2EValidaDadosECascata(unittest.TestCase):
         # 1. Carregar MICROPLANEJAMENTO_CONSOLIDADO_INOVESA 1.xlsx
         micro_path = Path("data/planilhas/MICROPLANEJAMENTO_CONSOLIDADO_INOVESA 1.xlsx")
         print(f"\n1. Carregando {micro_path}...")
-        cls.micro = pd.read_excel(micro_path, sheet_name=0)
-        print(f" ✓ {len(cls.micro)} linhas")
+        # Aba de micro escolhida pela MESMA lógica da produção (não sheet 0, que é insumos)
+        _aba_micro = _prefer_micro_sheet(pd.ExcelFile(micro_path).sheet_names)
+        cls.micro = pd.read_excel(micro_path, sheet_name=_aba_micro)
+        print(f" ✓ {len(cls.micro)} linhas (aba {_aba_micro!r})")
 
         # 2. Carregar CT_317_NORMALIZADA.xlsx
         ct317_path = Path("data/planilhas/CT_317_NORMALIZADA.xlsx")
