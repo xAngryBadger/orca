@@ -115,7 +115,7 @@
                         <input type="hidden" name="equipes" id="equipes-hidden" value="{{ defaults.equipes }}">
                         <input type="hidden" name="executores_base" id="executores-base-hidden" value="{{ defaults.executores_base }}">
                         <input type="hidden" name="jornada_base" id="jornada-base-hidden" value="{{ defaults.jornada_base }}">
-                        <button type="submit" class="btn btn-accent w-full" {% if not tem_micro or not tem_tarifas %}disabled{% endif %}>
+                        <button type="submit" class="btn btn-ghost w-full" {% if not tem_micro or not tem_tarifas %}disabled{% endif %}>
                             <span class="htmx-indicator"></span>Simular grade personalizada
                         </button>
                     </form>
