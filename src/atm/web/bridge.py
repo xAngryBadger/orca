@@ -8,6 +8,8 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional
 from dataclasses import dataclass, field
 
+import pandas as pd
+
 from ..orca.comparativo_real import simular_cenarios_reais, simular_cenario_real
 from ..orca.io import (
     carregar_planilha_microplanejamento,
@@ -16,9 +18,10 @@ from ..orca.io import (
     buscar_arquivos_excel,
 )
 from ..orca.tarifas import carregar_stg_tarifas
-from ..orca.config import carregar_config
+from ..orca.config import carregar_config, modo_somente_hh
 from ..orca.schemas import MicroRow, micro_de_dataframe, tarifas_de_dict
 from ..orca.scheduler_core import _JORNADA_DEFAULT_H
+from ..orca.engine_pkg.engine import _construir_demandas
 
 
 # Defaults reais do scheduler (não do config.json)
@@ -112,6 +115,80 @@ def _encontrar_ct_path() -> Optional[str]:
     return None
 
 
+def _micro_rows_para_dataframe(micro_rows: List[MicroRow]) -> pd.DataFrame:
+    """Converte lista de MicroRow para DataFrame compatível com _construir_demandas."""
+    data = []
+    for row in micro_rows:
+        data.append({
+            "fazenda": row.fazenda,
+            "chave": row.chave,
+            "area_ha": row.area_ha,
+            "atividade": row.atividade,
+            "penalidade": row.penalidade,
+            "equipe": row.equipe,
+            "municipio": row.municipio,
+            "estado": row.estado,
+            "metodologia": row.metodologia,
+        })
+    return pd.DataFrame(data)
+
+
+def _construir_demanda_canonica(
+    micro_rows: List[MicroRow],
+    tarifas: Dict[str, Any],
+    cfg: Dict[str, Any],
+) -> Dict[Any, float]:
+    """Constrói dicionário de demanda usando o construtor CANÔNICO do motor.
+
+    Reutiliza _construir_demandas de engine_pkg/engine.py que:
+    - Aplica de_para (mapeamento atividade micro -> chave tarifa)
+    - Usa resolver_rendimento_hh com fallback correto (mediana/8.0)
+    - Aplica penalidade
+    - Identifica HM-only corretamente (não vira HH fake)
+    - Respeita regra "HH zera HM"
+
+    Retorna: Dict[(talhao, atividade_micro), float] com HH total por talhão/atividade.
+    """
+    if not micro_rows:
+        return {}
+
+    df_faz = _micro_rows_para_dataframe(micro_rows)
+
+    # Extrai talhões ordenados e atividades reais
+    talhoes_ordenados = sorted(df_faz["chave"].unique().tolist())
+    atividades_reais = sorted(df_faz["atividade"].unique().tolist())
+
+    # Parâmetros para o construtor canônico
+    strict = cfg.get("orcamento_estrito", True)
+    session_hh = {}  # sem overrides de HH em sessão no painel web
+    # Passa a FUNÇÃO modo_somente_hh (callable), não o resultado booleano
+    # O motor chama modo_somente_hh(cfg) internamente
+
+    # Chama o construtor canônico
+    resultado = _construir_demandas(
+        talhoes_ordenados=talhoes_ordenados,
+        df_faz=df_faz,
+        cfg=cfg,
+        tarifas=tarifas,
+        strict=strict,
+        session_hh=session_hh,
+        modo_somente_hh=modo_somente_hh,
+        atividades_reais=atividades_reais,
+    )
+
+    # Converte o resultado para o formato esperado por simular():
+    # Dict[(talhao, atividade_micro)] -> float (HH total)
+    demanda: Dict[Any, float] = {}
+    for talhao, tarefas in resultado["demandas"].items():
+        for tarefa in tarefas:
+            # tarefa["atividade"] é o nome original do micro (atividade_micro)
+            # tarefa["hh_total"] já inclui penalidade e usa rendimento_hh correto
+            if tarefa["hh_total"] > 0:
+                demanda[(talhao, tarefa["atividade"])] = round(tarefa["hh_total"], 2)
+
+    return demanda
+
+
 def carregar_micro(session_id: str, caminho: Optional[str] = None) -> SessionState:
     """Carrega microatual.xlsx e armazena na sessão."""
     state = _get_or_create_session(session_id)
@@ -181,25 +258,6 @@ def validar_dados(session_id: str) -> SessionState:
     return state
 
 
-def _construir_demanda(micro_rows: List[MicroRow], tarifas: Dict[str, Any]) -> Dict[Any, float]:
-    """Constrói dicionário de demanda a partir do micro e tarifas."""
-    demanda: Dict[Any, float] = {}
-    for row in micro_rows:
-        talhao = row.chave  # schemas usa 'chave' para talhão
-        atividade = row.atividade
-        area = float(row.area_ha)
-        # Busca rendimento hm (hectare/mês) ou hh (hora/homem)
-        tarifa = tarifas.get(atividade, {})
-        rendimento_hm = tarifa.get("rendimento_hm", 0.0)
-        if rendimento_hm and rendimento_hm > 0:
-            hh = area / rendimento_hm
-        else:
-            rendimento_hh = tarifa.get("rendimento_hh", 0.0)
-            hh = area * rendimento_hh if rendimento_hh else area
-        demanda[(talhao, atividade)] = round(hh, 2)
-    return demanda
-
-
 def simular(
     session_id: str,
     jornadas: List[float],
@@ -217,8 +275,8 @@ def simular(
     state.erro = None
     
     try:
-        # Constrói demanda real
-        demanda = _construir_demanda(state.micro_rows, state.tarifas)
+        # Constrói demanda real usando o construtor CANÔNICO
+        demanda = _construir_demanda_canonica(state.micro_rows, state.tarifas, state.config)
         
         if not demanda:
             state.erro = "Nenhuma demanda construída — verifique micro e tarifas"
@@ -251,7 +309,7 @@ def simular_unico(
     state.erro = None
     
     try:
-        demanda = _construir_demanda(state.micro_rows, state.tarifas)
+        demanda = _construir_demanda_canonica(state.micro_rows, state.tarifas, state.config)
         
         if not demanda:
             state.erro = "Nenhuma demanda construída — verifique micro e tarifas"
