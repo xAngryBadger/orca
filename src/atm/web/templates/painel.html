@@ -12,7 +12,7 @@
 
             <div class="space-y-2 mb-5">
                 <div class="flex items-center justify-between bg-bg border border-line rounded-md px-3 py-2.5">
-                    <span class="text-sm">Microatual</span>
+                    <span class="text-sm">Microplanejamento</span>
                     {% if tem_micro %}
                     <span class="badge badge-ok">{{ state.micro_rows|length }} talhões</span>
                     {% else %}
@@ -40,7 +40,6 @@
                         <span class="htmx-indicator"></span>Carregar microplanejamento
                     </button>
                 </form>
-                <p class="text-[0.68rem] text-faint text-center font-mono">data/planilhas/microatual.xlsx</p>
 
                 <form hx-post="/carregar-tarifas" hx-target="body" hx-swap="outerHTML">
                     <input type="hidden" name="session_id" value="{{ session_id }}">
@@ -48,7 +47,6 @@
                         <span class="htmx-indicator"></span>Carregar tarifas
                     </button>
                 </form>
-                <p class="text-[0.68rem] text-faint text-center font-mono">data/planilhas/ct317real.xlsx · STG_TARIFAS.xlsx</p>
             </div>
         </section>
 
