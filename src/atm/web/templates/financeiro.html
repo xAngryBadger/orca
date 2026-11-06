@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}Orca — Financeiro{% endblock %}
+
+{% block content %}
+<div class="flex items-center gap-3 mb-6 rise">
+    <a href="/resultado?session_id={{ session_id }}" class="btn btn-ghost">← Voltar aos resultados</a>
+    <div>
+        <h1 class="font-semibold text-xl tracking-tight">Agregação Financeira</h1>
+        <p class="text-muted text-xs mt-0.5 font-mono">
+            Cenário: {{ cenario_ref.executores }} operários × {{ cenario_ref.jornada }}h —
+            {{ cenario_ref.dias_simulados }} dias ({{ cenario_ref.meses_simulados }} meses)
+        </p>
+    </div>
+</div>
+
+{% if erro %}
+<div class="mb-5 px-4 py-3 rounded-md border border-err/30 bg-err/10 text-err text-sm font-medium rise">{{ erro }}</div>
+{% endif %}
+
+{% if not modo_financeiro %}
+<div class="panel p-5 mb-5 rise">
+    <div class="flex items-center gap-3">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" class="text-warn" aria-hidden="true">
+            <path d="M12 9v4M12 17h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M5 19h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2z" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+        <div>
+            <h3 class="font-semibold">Modo HH-only ativo</h3>
+            <p class="text-muted text-sm mt-1">O modo financeiro está desativado (config.json: "modo_somente_hh": true).</p>
+            <p class="text-muted text-sm mt-1">Para ver custos e ganhos, defina "modo_somente_hh": false no config.json e recarregue as tarifas.</p>
+        </div>
+    </div>
+</div>
+{% elif not tem_dados_financeiros %}
+<div class="panel p-5 mb-5 rise">
+    <div class="flex items-center gap-3">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" class="text-warn" aria-hidden="true">
+            <path d="M12 9v4M12 17h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M5 19h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0 2 2v10a2 2 0 0 0 2 2z" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+        <div>
+            <h3 class="font-semibold">Dados financeiros indisponíveis</h3>
+            <p class="text-muted text-sm mt-1">As tarifas carregadas não contêm preco_ha ou custo_hora válidos.</p>
+            <p class="text-muted text-sm mt-1">Verifique se o STG_TARIFAS.xlsx tem as colunas preco_ha e custo_hora preenchidas.</p>
+        </div>
+    </div>
+</div>
+{% else %}
+
+<!-- Agregação Semanal -->
+<section class="panel p-5 mb-5 rise">
+    <h2 class="section-title">Custo por Semana</h2>
+    {% if agregacao_semana %}
+    <div class="overflow-x-auto border border-line rounded-md">
+        <table>
+            <thead>
+                <tr>
+                    <th>Período</th>
+                    {% for fazenda in agregacao_semana.values()|first|keys|list|sort %}
+                    <th>{{ fazenda }}</th>
+                    {% endfor %}
+                    <th class="text-right">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for periodo, fazendas in agregacao_semana.items() %}
+                <tr>
+                    <td class="font-mono">{{ periodo }}</td>
+                    {% for fazenda in fazendas.keys()|list|sort %}
+                    <td class="font-mono text-right">{{ fazendas[fazenda] | floatformat:2 }}</td>
+                    {% endfor %}
+                    <td class="font-mono text-right font-semibold">{{ fazendas.values()|sum | floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-muted text-sm text-center py-4">Sem dados para agregação semanal.</p>
+    {% endif %}
+</section>
+
+<!-- Agregação Mensal -->
+<section class="panel p-5 mb-5 rise">
+    <h2 class="section-title">Custo por Mês</h2>
+    {% if agregacao_mes %}
+    <div class="overflow-x-auto border border-line rounded-md">
+        <table>
+            <thead>
+                <tr>
+                    <th>Período</th>
+                    {% for fazenda in agregacao_mes.values()|first|keys|list|sort %}
+                    <th>{{ fazenda }}</th>
+                    {% endfor %}
+                    <th class="text-right">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for periodo, fazendas in agregacao_mes.items() %}
+                <tr>
+                    <td class="font-mono">{{ periodo }}</td>
+                    {% for fazenda in fazendas.keys()|list|sort %}
+                    <td class="font-mono text-right">{{ fazendas[fazenda] | floatformat:2 }}</td>
+                    {% endfor %}
+                    <td class="font-mono text-right font-semibold">{{ fazendas.values()|sum | floatformat:2 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-muted text-sm text-center py-4">Sem dados para agregação mensal.</p>
+    {% endif %}
+</section>
+
+<!-- Resumo Total -->
+<section class="panel p-5 rise">
+    <h2 class="section-title">Resumo Total</h2>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div class="bg-bg border border-line rounded-md p-3.5">
+            <div class="text-xl font-semibold font-mono text-txt">{{ agregacao_semana.values()|map(attribute='values')|flatten|sum | floatformat:2 }}</div>
+            <div class="text-[0.66rem] text-faint uppercase tracking-wider mt-1">Custo Total (Semanas)</div>
+        </div>
+        <div class="bg-bg border border-line rounded-md p-3.5">
+            <div class="text-xl font-semibold font-mono text-txt">{{ agregacao_mes.values()|map(attribute='values')|flatten|sum | floatformat:2 }}</div>
+            <div class="text-[0.66rem] text-faint uppercase tracking-wider mt-1">Custo Total (Meses)</div>
+        </div>
+        <div class="bg-bg border border-line rounded-md p-3.5">
+            <div class="text-xl font-semibold font-mono text-txt">{{ cenario_ref.hh_total }}</div>
+            <div class="text-[0.66rem] text-faint uppercase tracking-wider mt-1">HH Total</div>
+        </div>
+        <div class="bg-bg border border-line rounded-md p-3.5">
+            <div class="text-xl font-semibold font-mono text-txt">{{ cenario_ref.dias_simulados }}</div>
+            <div class="text-[0.66rem] text-faint uppercase tracking-wider mt-1">Dias Simulados</div>
+        </div>
+    </div>
+</section>
+
+{% endif %}
+
+<p class="text-center text-xs text-faint mb-6">Dados do <span class="font-mono text-muted">scheduler real</span> · Orca v7</p>
+{% endblock %}

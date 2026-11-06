@@ -14,6 +14,8 @@ from .bridge import (
     validar_dados,
     simular,
     simular_unico,
+    simular_com_cronograma,
+    agregar_por_periodo,
     obter_estado,
     limpar_sessao,
     defaults_simulacao,
@@ -195,12 +197,82 @@ def get_resultado(request: Request, session_id: Optional[str] = None):
     sid = session_id or _get_session_id(request)
     state = obter_estado(sid)
     
+    # Verifica se há dados financeiros disponíveis (modo_somente_hh=False e tarifas com preço/custo)
+    modo_financeiro = not state.config.get("modo_somente_hh", True)
+    tem_dados_financeiros = modo_financeiro and state.tarifas and any(
+        t.get("preco_ha", 0) > 0 or t.get("custo_hora", 0) > 0 for t in state.tarifas.values()
+    )
+    
     response = templates.TemplateResponse(request, "resultado.html",
         {
             "request": request,
             "session_id": sid,
             "cenarios": state.cenarios,
             "erro": state.erro,
+            "modo_financeiro": modo_financeiro,
+            "tem_dados_financeiros": tem_dados_financeiros,
+        },
+    )
+    return _render_with_session(response, sid)
+
+
+@app.get("/financeiro", response_class=HTMLResponse)
+def get_financeiro(request: Request, session_id: Optional[str] = None):
+    """Painel financeiro — agregação de custo/ganho por semana/mês.
+    
+    Roda um cenário representativo (primeiro da grade ou default) com cronograma
+    e exibe agregação por período.
+    """
+    sid = session_id or _get_session_id(request)
+    state = obter_estado(sid)
+    
+    modo_financeiro = not state.config.get("modo_somente_hh", True)
+    
+    # Precisa de cenários para saber qual simular
+    if not state.cenarios:
+        response = templates.TemplateResponse(request, "financeiro.html",
+            {
+                "request": request,
+                "session_id": sid,
+                "erro": "Nenhum cenário simulado. Rode a simulação primeiro.",
+                "modo_financeiro": modo_financeiro,
+            },
+        )
+        return _render_with_session(response, sid)
+    
+    # Usa o primeiro cenário como representativo
+    cenario_ref = state.cenarios[0]
+    jornada = cenario_ref["jornada"]
+    equipe = cenario_ref["executores"]
+    
+    # Roda cenário com cronograma
+    state = simular_com_cronograma(sid, jornada, equipe)
+    
+    if state.erro:
+        response = templates.TemplateResponse(request, "financeiro.html",
+            {
+                "request": request,
+                "session_id": sid,
+                "erro": state.erro,
+                "modo_financeiro": modo_financeiro,
+            },
+        )
+        return _render_with_session(response, sid)
+    
+    # Agrega por semana e mês
+    cronograma = getattr(state, "cronograma", [])
+    agregacao_semana = agregar_por_periodo(cronograma, "semana", modo_somente_hh=not modo_financeiro)
+    agregacao_mes = agregar_por_periodo(cronograma, "mes", modo_somente_hh=not modo_financeiro)
+    
+    response = templates.TemplateResponse(request, "financeiro.html",
+        {
+            "request": request,
+            "session_id": sid,
+            "cenario_ref": cenario_ref,
+            "agregacao_semana": agregacao_semana,
+            "agregacao_mes": agregacao_mes,
+            "modo_financeiro": modo_financeiro,
+            "tem_dados_financeiros": modo_financeiro and cronograma,
         },
     )
     return _render_with_session(response, sid)
