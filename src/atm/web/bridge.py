@@ -25,6 +25,20 @@ from ..orca.scheduler_core import _JORNADA_DEFAULT_H
 _JORNADA_DEFAULT = _JORNADA_DEFAULT_H  # 4.6h
 _EXECUTORES_DEFAULT = 9  # padrão do prompt interativo
 
+# Grade padrão de cenários (mesma usada pelo CLI) — fonte única, sem duplicar em HTML/app.py
+GRADE_PADRAO_JORNADAS = [4.6, 6.0, 8.0]
+GRADE_PADRAO_EQUIPES = [4, 6, 9, 12]
+
+
+def defaults_simulacao() -> Dict[str, Any]:
+    """Defaults exibidos no painel (modo simples/detalhado) — derivados do scheduler, não hardcoded no HTML."""
+    return {
+        "jornadas": ",".join(str(j) for j in GRADE_PADRAO_JORNADAS),
+        "equipes": ",".join(str(e) for e in GRADE_PADRAO_EQUIPES),
+        "executores_base": _EXECUTORES_DEFAULT,
+        "jornada_base": _JORNADA_DEFAULT,
+    }
+
 
 _executor = ThreadPoolExecutor(max_workers=2)
 

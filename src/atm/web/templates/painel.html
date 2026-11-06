@@ -5,11 +5,10 @@
 {% block content %}
 <div class="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6 items-start">
 
-    <!-- Coluna esquerda: dados da sessão -->
+    <!-- ── Passo 1 · Dados ─────────────────────────────────────────── -->
     <aside class="space-y-5">
-
         <section class="panel p-5 rise">
-            <h2 class="section-title">Dados da sessão</h2>
+            <h2 class="section-title">1 · Dados</h2>
 
             <div class="space-y-2 mb-5">
                 <div class="flex items-center justify-between bg-bg border border-line rounded-md px-3 py-2.5">
@@ -24,14 +23,6 @@
                     <span class="text-sm">Tarifas</span>
                     {% if tem_tarifas %}
                     <span class="badge badge-ok">{{ state.tarifas|length }} atividades</span>
-                    {% else %}
-                    <span class="badge badge-muted">aguardando</span>
-                    {% endif %}
-                </div>
-                <div class="flex items-center justify-between bg-bg border border-line rounded-md px-3 py-2.5">
-                    <span class="text-sm">Cenários</span>
-                    {% if tem_cenarios %}
-                    <span class="badge badge-ok">{{ state.cenarios|length }} rodados</span>
                     {% else %}
                     <span class="badge badge-muted">aguardando</span>
                     {% endif %}
@@ -58,13 +49,6 @@
                     </button>
                 </form>
                 <p class="text-[0.68rem] text-faint text-center font-mono">data/planilhas/ct317real.xlsx</p>
-
-                <form hx-post="/validar" hx-target="body" hx-swap="outerHTML">
-                    <input type="hidden" name="session_id" value="{{ session_id }}">
-                    <button type="submit" class="btn btn-ghost w-full" {% if not tem_micro or not tem_tarifas %}disabled{% endif %}>
-                        <span class="htmx-indicator"></span>Validar dados
-                    </button>
-                </form>
             </div>
         </section>
 
@@ -76,80 +60,93 @@
                 </button>
             </form>
         </section>
-
     </aside>
 
-    <!-- Coluna direita: simulação + últimos cenários -->
+    <!-- ── Passo 2 + 3 · Simular e resultados ───────────────────────── -->
     <div class="space-y-5">
 
         <section class="panel p-5 rise">
-            <h2 class="section-title">Simular cenários
-                {% if not tem_micro or not tem_tarifas %}
+            <h2 class="section-title">2 · Simular
+                {% if tem_micro and tem_tarifas %}
+                <span class="badge badge-ok ml-auto normal-case tracking-normal">dados prontos</span>
+                {% else %}
                 <span class="badge badge-muted ml-auto normal-case tracking-normal">carregue os dados primeiro</span>
                 {% endif %}
             </h2>
 
-            <div class="grid grid-cols-2 gap-3 mb-3">
-                <div>
-                    <label class="label" for="executores-base-input">Operários base</label>
-                    <input type="number" name="executores_base" value="9" min="1" max="50" class="input-field font-mono" id="executores-base-input">
-                </div>
-                <div>
-                    <label class="label" for="jornada-base-input">Jornada base (h/dia)</label>
-                    <input type="number" name="jornada_base" value="4.6" step="0.1" min="1" max="12" class="input-field font-mono" id="jornada-base-input">
-                </div>
-            </div>
-            <div class="mb-3">
-                <label class="label" for="jornadas-input">Jornadas da grade (h, vírgula)</label>
-                <input type="text" name="jornadas" value="4.6,6.0,8.0" class="input-field font-mono" id="jornadas-input">
-            </div>
-            <div class="mb-5">
-                <label class="label" for="equipes-input">Equipes da grade (nº operários, vírgula)</label>
-                <input type="text" name="equipes" value="4,6,9,12" class="input-field font-mono" id="equipes-input">
-            </div>
+            <!-- Modo simples: um clique, grade padrão vinda do scheduler -->
+            <form hx-post="/comparar-grade" hx-target="body" hx-swap="outerHTML">
+                <input type="hidden" name="session_id" value="{{ session_id }}">
+                <button type="submit" class="btn btn-primary w-full !min-h-[48px] text-[0.95rem]" {% if not tem_micro or not tem_tarifas %}disabled{% endif %}>
+                    <span class="htmx-indicator"></span>▶ Simular grade padrão
+                </button>
+            </form>
+            <p class="text-[0.68rem] text-faint text-center font-mono mt-2">
+                {{ defaults.jornadas }}h × {{ defaults.equipes }} ops · base {{ defaults.executores_base }} ops / {{ defaults.jornada_base }}h
+            </p>
 
-            <div class="space-y-2">
-                <form hx-post="/simular" hx-target="body" hx-swap="outerHTML">
-                    <input type="hidden" name="session_id" value="{{ session_id }}">
-                    <input type="hidden" name="jornadas" id="jornadas-hidden" value="4.6,6.0,8.0">
-                    <input type="hidden" name="equipes" id="equipes-hidden" value="4,6,9,12">
-                    <input type="hidden" name="executores_base" id="executores-base-hidden" value="9">
-                    <input type="hidden" name="jornada_base" id="jornada-base-hidden" value="4.6">
-                    <button type="submit" class="btn btn-primary w-full" {% if not tem_micro or not tem_tarifas %}disabled{% endif %}>
-                        <span class="htmx-indicator"></span>Simular grade (jornada × equipe)
-                    </button>
-                </form>
+            <!-- Modo detalhado: toggle sem recarregar -->
+            <div class="mt-4 border-t border-line pt-4">
+                <button type="button" id="toggle-detalhado" class="btn btn-ghost w-full !min-h-0 py-2 text-xs text-muted hover:text-txt">
+                    Personalizar parâmetros <span id="toggle-icone">▾</span>
+                </button>
 
-                <form hx-post="/comparar-grade" hx-target="body" hx-swap="outerHTML">
-                    <input type="hidden" name="session_id" value="{{ session_id }}">
-                    <button type="submit" class="btn btn-ghost w-full" {% if not tem_micro or not tem_tarifas %}disabled{% endif %}>
-                        <span class="htmx-indicator"></span>Comparar grade padrão (4.6/6/8h × 4/6/9/12)
-                    </button>
-                </form>
-
-                <form hx-post="/simular-unico" hx-target="body" hx-swap="outerHTML">
-                    <input type="hidden" name="session_id" value="{{ session_id }}">
-                    <div class="grid grid-cols-2 gap-3 mb-2">
+                <div id="painel-detalhado" class="hidden mt-4 space-y-3">
+                    <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="label">Jornada única</label>
-                            <input type="number" name="jornada" value="4.6" step="0.5" min="1" max="12" class="input-field font-mono">
+                            <label class="label" for="executores-base-input">Operários base</label>
+                            <input type="number" name="executores_base" value="{{ defaults.executores_base }}" min="1" max="50" class="input-field font-mono" id="executores-base-input">
                         </div>
                         <div>
-                            <label class="label">Equipe única</label>
-                            <input type="number" name="equipe" value="9" min="1" max="50" class="input-field font-mono">
+                            <label class="label" for="jornada-base-input">Jornada base (h/dia)</label>
+                            <input type="number" name="jornada_base" value="{{ defaults.jornada_base }}" step="0.1" min="1" max="12" class="input-field font-mono" id="jornada-base-input">
                         </div>
                     </div>
-                    <button type="submit" class="btn btn-ghost w-full" {% if not tem_micro or not tem_tarifas %}disabled{% endif %}>
-                        <span class="htmx-indicator"></span>Simular cenário único
-                    </button>
-                </form>
+                    <div>
+                        <label class="label" for="jornadas-input">Jornadas da grade (h, vírgula)</label>
+                        <input type="text" name="jornadas" value="{{ defaults.jornadas }}" class="input-field font-mono" id="jornadas-input">
+                    </div>
+                    <div>
+                        <label class="label" for="equipes-input">Equipes da grade (nº operários, vírgula)</label>
+                        <input type="text" name="equipes" value="{{ defaults.equipes }}" class="input-field font-mono" id="equipes-input">
+                    </div>
+
+                    <form hx-post="/simular" hx-target="body" hx-swap="outerHTML">
+                        <input type="hidden" name="session_id" value="{{ session_id }}">
+                        <input type="hidden" name="jornadas" id="jornadas-hidden" value="{{ defaults.jornadas }}">
+                        <input type="hidden" name="equipes" id="equipes-hidden" value="{{ defaults.equipes }}">
+                        <input type="hidden" name="executores_base" id="executores-base-hidden" value="{{ defaults.executores_base }}">
+                        <input type="hidden" name="jornada_base" id="jornada-base-hidden" value="{{ defaults.jornada_base }}">
+                        <button type="submit" class="btn btn-accent w-full" {% if not tem_micro or not tem_tarifas %}disabled{% endif %}>
+                            <span class="htmx-indicator"></span>Simular grade personalizada
+                        </button>
+                    </form>
+
+                    <form hx-post="/simular-unico" hx-target="body" hx-swap="outerHTML">
+                        <input type="hidden" name="session_id" value="{{ session_id }}">
+                        <div class="grid grid-cols-2 gap-3 mb-2">
+                            <div>
+                                <label class="label">Jornada única</label>
+                                <input type="number" name="jornada" value="{{ defaults.jornada_base }}" step="0.5" min="1" max="12" class="input-field font-mono">
+                            </div>
+                            <div>
+                                <label class="label">Equipe única</label>
+                                <input type="number" name="equipe" value="{{ defaults.executores_base }}" min="1" max="50" class="input-field font-mono">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-ghost w-full" {% if not tem_micro or not tem_tarifas %}disabled{% endif %}>
+                            <span class="htmx-indicator"></span>Simular cenário único
+                        </button>
+                    </form>
+                </div>
             </div>
         </section>
 
+        <!-- ── Passo 3 · Resultados ─────────────────────────────────── -->
         {% if tem_cenarios %}
         <section class="panel p-5 rise">
-            <h2 class="section-title">Últimos cenários
-                <span class="badge badge-muted ml-auto normal-case tracking-normal">{{ state.cenarios|length }} no total</span>
+            <h2 class="section-title">3 · Resultados
+                <span class="badge badge-muted ml-auto normal-case tracking-normal">{{ state.cenarios|length }} cenários</span>
             </h2>
 
             <div class="overflow-x-auto border border-line rounded-md">
@@ -177,7 +174,7 @@
             </div>
 
             <div class="mt-4 text-center">
-                <a href="/resultado?session_id={{ session_id }}" class="btn btn-ghost">Resultados completos</a>
+                <a href="/resultado?session_id={{ session_id }}" class="btn btn-ghost">Resultados completos →</a>
             </div>
         </section>
         {% endif %}
@@ -188,15 +185,27 @@
 
 {% block scripts %}
 <script>
+    // Toggle do modo detalhado (sem recarregar a página)
+    const toggle = document.getElementById('toggle-detalhado');
+    const painel = document.getElementById('painel-detalhado');
+    const icone = document.getElementById('toggle-icone');
+    if (toggle && painel) {
+        toggle.addEventListener('click', () => {
+            const aberto = !painel.classList.toggle('hidden');
+            if (icone) icone.textContent = aberto ? '▴' : '▾';
+        });
+    }
+
+    // Sincroniza campos hidden com inputs visíveis
     const sync = (src, dst, initial) => {
         const s = document.getElementById(src), d = document.getElementById(dst);
         if (!s || !d) return;
         d.value = s.value || initial;
         s.addEventListener('input', () => { d.value = s.value; });
     };
-    sync('jornadas-input', 'jornadas-hidden', '4.6,6.0,8.0');
-    sync('equipes-input', 'equipes-hidden', '4,6,9,12');
-    sync('executores-base-input', 'executores-base-hidden', '9');
-    sync('jornada-base-input', 'jornada-base-hidden', '4.6');
+    sync('jornadas-input', 'jornadas-hidden', '{{ defaults.jornadas }}');
+    sync('equipes-input', 'equipes-hidden', '{{ defaults.equipes }}');
+    sync('executores-base-input', 'executores-base-hidden', '{{ defaults.executores_base }}');
+    sync('jornada-base-input', 'jornada-base-hidden', '{{ defaults.jornada_base }}');
 </script>
 {% endblock %}

@@ -16,6 +16,9 @@ from .bridge import (
     simular_unico,
     obter_estado,
     limpar_sessao,
+    defaults_simulacao,
+    GRADE_PADRAO_JORNADAS,
+    GRADE_PADRAO_EQUIPES,
 )
 
 app = FastAPI(title="Orca Web — Painel de Cenários")
@@ -75,23 +78,30 @@ def _render_with_session(response: HTMLResponse, session_id: str) -> HTMLRespons
     return response
 
 
+_DEFAULTS = defaults_simulacao()
+
+
+def _ctx_painel(request: Request, session_id: str, state) -> Dict[str, Any]:
+    """Contexto padrão do painel — inclui defaults derivados do scheduler (sem hardcode no HTML)."""
+    return {
+        "request": request,
+        "session_id": session_id,
+        "state": state,
+        "tem_micro": bool(state.micro_rows),
+        "tem_tarifas": bool(state.tarifas),
+        "tem_cenarios": bool(state.cenarios),
+        "erro": state.erro,
+        "defaults": _DEFAULTS,
+    }
+
+
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):
     """Painel principal — botões de ação."""
     session_id = _get_session_id(request)
     state = obter_estado(session_id)
     
-    response = templates.TemplateResponse(request, "painel.html",
-        {
-            "request": request,
-            "session_id": session_id,
-            "state": state,
-            "tem_micro": bool(state.micro_rows),
-            "tem_tarifas": bool(state.tarifas),
-            "tem_cenarios": bool(state.cenarios),
-            "erro": state.erro,
-        },
-    )
+    response = templates.TemplateResponse(request, "painel.html", _ctx_painel(request, session_id, state))
     return _render_with_session(response, session_id)
 
 
@@ -100,17 +110,7 @@ def post_carregar_micro(request: Request, session_id: str = Form(...)):
     """Carrega microatual.xlsx."""
     state = carregar_micro(session_id)
     
-    response = templates.TemplateResponse(request, "painel.html",
-        {
-            "request": request,
-            "session_id": session_id,
-            "state": state,
-            "tem_micro": bool(state.micro_rows),
-            "tem_tarifas": bool(state.tarifas),
-            "tem_cenarios": bool(state.cenarios),
-            "erro": state.erro,
-        },
-    )
+    response = templates.TemplateResponse(request, "painel.html", _ctx_painel(request, session_id, state))
     return _render_with_session(response, session_id)
 
 
@@ -119,17 +119,7 @@ def post_carregar_tarifas(request: Request, session_id: str = Form(...)):
     """Carrega ct317real.xlsx (tarifas)."""
     state = carregar_tarifas(session_id)
     
-    response = templates.TemplateResponse(request, "painel.html",
-        {
-            "request": request,
-            "session_id": session_id,
-            "state": state,
-            "tem_micro": bool(state.micro_rows),
-            "tem_tarifas": bool(state.tarifas),
-            "tem_cenarios": bool(state.cenarios),
-            "erro": state.erro,
-        },
-    )
+    response = templates.TemplateResponse(request, "painel.html", _ctx_painel(request, session_id, state))
     return _render_with_session(response, session_id)
 
 
@@ -138,17 +128,7 @@ def post_validar(request: Request, session_id: str = Form(...)):
     """Valida se micro e tarifas estão carregados."""
     state = validar_dados(session_id)
     
-    response = templates.TemplateResponse(request, "painel.html",
-        {
-            "request": request,
-            "session_id": session_id,
-            "state": state,
-            "tem_micro": bool(state.micro_rows),
-            "tem_tarifas": bool(state.tarifas),
-            "tem_cenarios": bool(state.cenarios),
-            "erro": state.erro,
-        },
-    )
+    response = templates.TemplateResponse(request, "painel.html", _ctx_painel(request, session_id, state))
     return _render_with_session(response, session_id)
 
 
@@ -156,10 +136,10 @@ def post_validar(request: Request, session_id: str = Form(...)):
 def post_simular(
     request: Request,
     session_id: str = Form(...),
-    jornadas: str = Form("4.6,6.0,8.0"),
-    equipes: str = Form("4,6,9,12"),
-    executores_base: int = Form(9),
-    jornada_base: float = Form(4.6),
+    jornadas: str = Form(_DEFAULTS["jornadas"]),
+    equipes: str = Form(_DEFAULTS["equipes"]),
+    executores_base: int = Form(_DEFAULTS["executores_base"]),
+    jornada_base: float = Form(_DEFAULTS["jornada_base"]),
 ):
     """Roda grade de cenários (jornada × equipe) pelo scheduler REAL."""
     try:
@@ -183,17 +163,7 @@ def post_simular(
     
     state = simular(session_id, jornadas_l, equipes_l, executores_base, jornada_base)
     
-    response = templates.TemplateResponse(request, "painel.html",
-        {
-            "request": request,
-            "session_id": session_id,
-            "state": state,
-            "tem_micro": bool(state.micro_rows),
-            "tem_tarifas": bool(state.tarifas),
-            "tem_cenarios": bool(state.cenarios),
-            "erro": state.erro,
-        },
-    )
+    response = templates.TemplateResponse(request, "painel.html", _ctx_painel(request, session_id, state))
     return _render_with_session(response, session_id)
 
 
@@ -201,23 +171,13 @@ def post_simular(
 def post_simular_unico(
     request: Request,
     session_id: str = Form(...),
-    jornada: float = Form(4.6),
-    equipe: int = Form(9),
+    jornada: float = Form(_DEFAULTS["jornada_base"]),
+    equipe: int = Form(_DEFAULTS["executores_base"]),
 ):
     """Roda UM cenário específico."""
     state = simular_unico(session_id, jornada, equipe)
     
-    response = templates.TemplateResponse(request, "painel.html",
-        {
-            "request": request,
-            "session_id": session_id,
-            "state": state,
-            "tem_micro": bool(state.micro_rows),
-            "tem_tarifas": bool(state.tarifas),
-            "tem_cenarios": bool(state.cenarios),
-            "erro": state.erro,
-        },
-    )
+    response = templates.TemplateResponse(request, "painel.html", _ctx_painel(request, session_id, state))
     return _render_with_session(response, session_id)
 
 
@@ -226,20 +186,16 @@ def post_comparar_grade(
     request: Request,
     session_id: str = Form(...),
 ):
-    """Atalho: roda grade padrão (jornadas 4.6/6/8 × equipes 4/6/9/12)."""
-    state = simular(session_id, [4.6, 6.0, 8.0], [4, 6, 9, 12], executores_base=9, jornada_base=4.6)
-    
-    response = templates.TemplateResponse(request, "painel.html",
-        {
-            "request": request,
-            "session_id": session_id,
-            "state": state,
-            "tem_micro": bool(state.micro_rows),
-            "tem_tarifas": bool(state.tarifas),
-            "tem_cenarios": bool(state.cenarios),
-            "erro": state.erro,
-        },
+    """Atalho: roda grade padrão (definida uma única vez no bridge)."""
+    state = simular(
+        session_id,
+        GRADE_PADRAO_JORNADAS,
+        GRADE_PADRAO_EQUIPES,
+        executores_base=_DEFAULTS["executores_base"],
+        jornada_base=_DEFAULTS["jornada_base"],
     )
+    
+    response = templates.TemplateResponse(request, "painel.html", _ctx_painel(request, session_id, state))
     return _render_with_session(response, session_id)
 
 
@@ -264,16 +220,6 @@ def get_resultado(request: Request, session_id: Optional[str] = None):
 def post_limpar(request: Request, session_id: str = Form(...)):
     """Limpa sessão e volta ao painel inicial."""
     limpar_sessao(session_id)
-    
-    response = templates.TemplateResponse(request, "painel.html",
-        {
-            "request": request,
-            "session_id": session_id,
-            "state": obter_estado(session_id),
-            "tem_micro": False,
-            "tem_tarifas": False,
-            "tem_cenarios": False,
-            "erro": None,
-        },
-    )
+
+    response = templates.TemplateResponse(request, "painel.html", _ctx_painel(request, session_id, obter_estado(session_id)))
     return _render_with_session(response, session_id)
