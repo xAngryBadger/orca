@@ -319,7 +319,7 @@ def _executar_scheduler_loop(config: _SchedulerLoopConfig):
             config.dia_termino_plantio[th] = dia_atual
 
     def _crono(dia, talhao, atv, turma, operarios, consumo, modo=None):
-        custo = consumo * resolver_custo_hora(config.cfg, config.tarifas, resolver_chave_tarifa(config.cfg, config.tarifas, atv)) if not config.modo_somente_hh(config.cfg) else 0.0
+        custo = consumo * resolver_custo_hora(config.cfg, config.tarifas, resolver_chave_tarifa(config.cfg, config.tarifas, atv))
         e = {
             "Dia": dia, "Fazenda": config.fazenda, "Talhao": talhao, "Atividade": atv,
             "Turma": turma, "Operarios": operarios, "HH": round(consumo, 2), "Custo_MO": custo,

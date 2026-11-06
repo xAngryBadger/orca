@@ -148,10 +148,7 @@ def _mediana_campo(tarifas, campo):
 
 
 def resolver_preco_ha(cfg, tarifas, t_nome, strict=False):
-    from .config import modo_somente_hh
-
-    if modo_somente_hh(cfg):
-        return 0.0
+    # modo_somente_hh só afeta UI, não cálculo de preço — financeiro flui quando cfg["modo_somente_hh"]=False
     if t_nome in (tarifas or {}):
         p = tarifas[t_nome].get("preco_ha") or tarifas[t_nome].get("preco_unit")
         try:
@@ -175,10 +172,7 @@ def resolver_preco_ha(cfg, tarifas, t_nome, strict=False):
 
 
 def resolver_custo_hora(cfg, tarifas, t_nome, strict=False):
-    from .config import modo_somente_hh
-
-    if modo_somente_hh(cfg):
-        return 0.0
+    # modo_somente_hh só afeta UI, não cálculo de custo — financeiro flui quando cfg["modo_somente_hh"]=False
     if t_nome in (tarifas or {}):
         c = tarifas[t_nome].get("custo_hora")
         try:
